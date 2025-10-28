@@ -760,12 +760,44 @@ Total: {self.selected_request.get('duration', 0):.2f} ms
 
     def add_session_tab(self, session_name):
         """Add session tab"""
-        # Placeholder for session tab implementation
-        pass
+        # Add a new tab to the session notebook if it exists
+        # This would require a session notebook widget to be created in setup_session_tabs()
+        # For now, just track the session in the sessions dict
+        if not hasattr(self, 'session_notebook'):
+            # Session notebook not yet implemented in UI
+            # Just track the session
+            pass
+        else:
+            # Create new tab for session
+            session_frame = ttk.Frame(self.session_notebook)
+            self.session_notebook.add(session_frame, text=session_name)
+            # Store reference
+            if not hasattr(self, 'session_frames'):
+                self.session_frames = {}
+            self.session_frames[session_name] = session_frame
 
     def export_pcap(self):
         """Export traffic to PCAP"""
-        messagebox.showinfo("Export PCAP", "PCAP export feature - implementation pending")
+        if not self.captured_packets:
+            messagebox.showwarning("No Data", "No packets captured yet. Start packet capture first.")
+            return
+
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".pcap",
+            filetypes=[("PCAP files", "*.pcap"), ("PCAPNG files", "*.pcapng")]
+        )
+        if filename:
+            try:
+                from pcap_writer import PCAPWriter
+                writer = PCAPWriter(filename)
+                for packet in self.captured_packets:
+                    packet_data = packet.get('raw_data', b'')
+                    timestamp = packet.get('timestamp', time.time())
+                    writer.write_packet(packet_data, timestamp)
+                writer.close()
+                self.status_label.config(text=f"Exported {len(self.captured_packets)} packets to {filename}")
+            except Exception as e:
+                messagebox.showerror("Export Error", f"Failed to export PCAP: {e}")
 
     def export_json(self):
         """Export traffic to JSON"""
@@ -780,43 +812,500 @@ Total: {self.selected_request.get('duration', 0):.2f} ms
 
     def export_csv(self):
         """Export traffic to CSV"""
-        messagebox.showinfo("Export CSV", "CSV export feature - implementation pending")
+        if not self.traffic_items:
+            messagebox.showwarning("No Data", "No traffic data to export")
+            return
+
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
+        )
+        if filename:
+            try:
+                import csv
+                with open(filename, 'w', newline='', encoding='utf-8') as f:
+                    writer = csv.writer(f)
+                    # Header
+                    writer.writerow(['Timestamp', 'Method', 'Host', 'Path', 'Status', 'Size', 'Duration (ms)', 'Content-Type'])
+                    # Data rows
+                    for item in self.traffic_items:
+                        writer.writerow([
+                            item.get('timestamp', ''),
+                            item.get('method', ''),
+                            item.get('host', ''),
+                            item.get('path', ''),
+                            item.get('status_code', ''),
+                            item.get('response_size', ''),
+                            item.get('duration', ''),
+                            item.get('content_type', '')
+                        ])
+                self.status_label.config(text=f"Exported {len(self.traffic_items)} requests to {filename}")
+            except Exception as e:
+                messagebox.showerror("Export Error", f"Failed to export CSV: {e}")
 
     def show_timeline(self):
         """Show timeline view"""
-        messagebox.showinfo("Timeline", "Timeline visualization - implementation pending")
+        timeline_window = tk.Toplevel(self.root)
+        timeline_window.title("Timeline Visualization")
+        timeline_window.geometry("1000x600")
+
+        # Create canvas for timeline
+        canvas_frame = ttk.Frame(timeline_window)
+        canvas_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        canvas = tk.Canvas(canvas_frame, bg='white')
+        scrollbar = ttk.Scrollbar(canvas_frame, orient=tk.VERTICAL, command=canvas.yview)
+        canvas.config(yscrollcommand=scrollbar.set)
+
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # Draw timeline
+        if not self.traffic_items:
+            canvas.create_text(500, 300, text="No traffic data to display", font=('Arial', 14))
+            return
+
+        # Get time range
+        timestamps = [item.get('timestamp', 0) for item in self.traffic_items if item.get('timestamp')]
+        if not timestamps:
+            canvas.create_text(500, 300, text="No timestamp data available", font=('Arial', 14))
+            return
+
+        min_time = min(timestamps)
+        max_time = max(timestamps)
+        time_range = max_time - min_time if max_time > min_time else 1
+
+        # Draw requests
+        y_offset = 50
+        for i, item in enumerate(self.traffic_items):
+            timestamp = item.get('timestamp', 0)
+            if not timestamp:
+                continue
+
+            # Calculate x position based on time
+            x_pos = 50 + ((timestamp - min_time) / time_range) * 800
+
+            # Color based on status code
+            status = item.get('status_code', 0)
+            if status < 300:
+                color = 'green'
+            elif status < 400:
+                color = 'blue'
+            elif status < 500:
+                color = 'orange'
+            else:
+                color = 'red'
+
+            # Draw circle for request
+            canvas.create_oval(x_pos-5, y_offset-5, x_pos+5, y_offset+5, fill=color, outline='black')
+
+            # Draw line to next request
+            if i < len(self.traffic_items) - 1:
+                next_timestamp = self.traffic_items[i+1].get('timestamp', 0)
+                if next_timestamp:
+                    next_x = 50 + ((next_timestamp - min_time) / time_range) * 800
+                    canvas.create_line(x_pos, y_offset, next_x, y_offset, fill='lightgray')
+
+            # Add tooltip
+            method = item.get('method', '')
+            host = item.get('host', '')
+            canvas.create_text(x_pos, y_offset + 20, text=f"{method}", font=('Arial', 8), angle=45)
+
+            y_offset += 40
+            if y_offset > 40 * len(self.traffic_items):
+                break
+
+        canvas.config(scrollregion=canvas.bbox("all"))
 
     def show_websocket_viewer(self):
         """Show WebSocket message viewer"""
-        messagebox.showinfo("WebSocket", "WebSocket viewer - implementation pending")
+        ws_window = tk.Toplevel(self.root)
+        ws_window.title("WebSocket Messages")
+        ws_window.geometry("900x700")
+
+        # Control frame
+        control_frame = ttk.Frame(ws_window)
+        control_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        ttk.Label(control_frame, text=f"Total Messages: {len(self.websocket_messages)}").pack(side=tk.LEFT, padx=10)
+        ttk.Button(control_frame, text="Clear", command=self.clear_websocket_messages).pack(side=tk.LEFT, padx=5)
+        ttk.Button(control_frame, text="Export", command=self.export_websocket_messages).pack(side=tk.LEFT, padx=5)
+
+        # Message list
+        list_frame = ttk.Frame(ws_window)
+        list_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        columns = ('Direction', 'Type', 'Size', 'Timestamp')
+        tree = ttk.Treeview(list_frame, columns=columns, show='headings', height=15)
+
+        for col in columns:
+            tree.heading(col, text=col)
+            tree.column(col, width=150)
+
+        tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=tree.yview)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        tree.config(yscrollcommand=scrollbar.set)
+
+        # Message details
+        detail_frame = ttk.LabelFrame(ws_window, text="Message Details", padding=10)
+        detail_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        detail_text = scrolledtext.ScrolledText(detail_frame, wrap=tk.WORD, height=10)
+        detail_text.pack(fill=tk.BOTH, expand=True)
+
+        # Populate messages
+        for msg in self.websocket_messages:
+            tree.insert('', tk.END, values=(
+                msg.get('direction', ''),
+                msg.get('type', ''),
+                msg.get('size', 0),
+                msg.get('timestamp', '')
+            ))
+
+        def on_select(event):
+            selection = tree.selection()
+            if selection:
+                idx = tree.index(selection[0])
+                if idx < len(self.websocket_messages):
+                    msg = self.websocket_messages[idx]
+                    detail_text.delete('1.0', tk.END)
+                    detail_text.insert('1.0', json.dumps(msg, indent=2, default=str))
+
+        tree.bind('<<TreeviewSelect>>', on_select)
 
     def show_dns_viewer(self):
         """Show DNS query viewer"""
-        messagebox.showinfo("DNS", "DNS query viewer - implementation pending")
+        dns_window = tk.Toplevel(self.root)
+        dns_window.title("DNS Queries")
+        dns_window.geometry("900x600")
+
+        # Stats frame
+        stats_frame = ttk.LabelFrame(dns_window, text="DNS Statistics", padding=10)
+        stats_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        total_queries = len(self.dns_queries)
+        ttk.Label(stats_frame, text=f"Total Queries: {total_queries}").pack(side=tk.LEFT, padx=10)
+
+        # Query list
+        list_frame = ttk.Frame(dns_window)
+        list_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        columns = ('Domain', 'Type', 'Result', 'Duration', 'Timestamp')
+        tree = ttk.Treeview(list_frame, columns=columns, show='headings')
+
+        for col in columns:
+            tree.heading(col, text=col)
+            tree.column(col, width=150)
+
+        tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=tree.yview)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        tree.config(yscrollcommand=scrollbar.set)
+
+        # Populate DNS queries
+        for query in self.dns_queries:
+            tree.insert('', tk.END, values=(
+                query.get('domain', ''),
+                query.get('type', ''),
+                query.get('result', ''),
+                f"{query.get('duration', 0):.2f}ms",
+                query.get('timestamp', '')
+            ))
 
     def show_packet_viewer(self):
         """Show packet capture viewer"""
-        messagebox.showinfo("Packet Capture", "Packet viewer - implementation pending")
+        packet_window = tk.Toplevel(self.root)
+        packet_window.title("Packet Capture Viewer")
+        packet_window.geometry("1000x700")
+
+        # Control frame
+        control_frame = ttk.Frame(packet_window)
+        control_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        ttk.Label(control_frame, text=f"Captured Packets: {len(self.captured_packets)}").pack(side=tk.LEFT, padx=10)
+        ttk.Button(control_frame, text="Export PCAP", command=self.export_pcap).pack(side=tk.LEFT, padx=5)
+
+        # Packet list
+        list_frame = ttk.Frame(packet_window)
+        list_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        columns = ('No.', 'Protocol', 'Source', 'Destination', 'Length', 'Info')
+        tree = ttk.Treeview(list_frame, columns=columns, show='headings', height=20)
+
+        for col in columns:
+            tree.heading(col, text=col)
+            if col == 'No.':
+                tree.column(col, width=50)
+            elif col == 'Info':
+                tree.column(col, width=300)
+            else:
+                tree.column(col, width=120)
+
+        tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=tree.yview)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        tree.config(yscrollcommand=scrollbar.set)
+
+        # Packet details
+        detail_frame = ttk.LabelFrame(packet_window, text="Packet Details", padding=5)
+        detail_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        detail_text = scrolledtext.ScrolledText(detail_frame, wrap=tk.WORD, height=15)
+        detail_text.pack(fill=tk.BOTH, expand=True)
+
+        # Populate packets
+        for i, packet in enumerate(self.captured_packets):
+            tree.insert('', tk.END, values=(
+                i + 1,
+                packet.get('protocol', 'Unknown'),
+                packet.get('src', ''),
+                packet.get('dst', ''),
+                packet.get('length', 0),
+                packet.get('info', '')
+            ))
+
+        def on_select(event):
+            selection = tree.selection()
+            if selection:
+                idx = int(tree.item(selection[0])['values'][0]) - 1
+                if idx < len(self.captured_packets):
+                    packet = self.captured_packets[idx]
+                    detail_text.delete('1.0', tk.END)
+                    detail_text.insert('1.0', json.dumps(packet, indent=2, default=str))
+
+        tree.bind('<<TreeviewSelect>>', on_select)
 
     def show_compare_dialog(self):
         """Show session comparison dialog"""
-        messagebox.showinfo("Compare", "Session comparison - implementation pending")
+        if not self.selected_request:
+            messagebox.showwarning("No Selection", "Please select a request first")
+            return
+
+        compare_window = tk.Toplevel(self.root)
+        compare_window.title("Compare Requests")
+        compare_window.geometry("1200x800")
+
+        # Two-panel layout
+        left_frame = ttk.LabelFrame(compare_window, text="Selected Request", padding=5)
+        left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        right_frame = ttk.LabelFrame(compare_window, text="Select Request to Compare", padding=5)
+        right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        # Left panel - selected request details
+        left_text = scrolledtext.ScrolledText(left_frame, wrap=tk.WORD)
+        left_text.pack(fill=tk.BOTH, expand=True)
+        left_text.insert('1.0', json.dumps(self.selected_request, indent=2, default=str))
+
+        # Right panel - request list and details
+        tree_frame = ttk.Frame(right_frame)
+        tree_frame.pack(fill=tk.BOTH, expand=True)
+
+        columns = ('Method', 'Host', 'Path', 'Status')
+        tree = ttk.Treeview(tree_frame, columns=columns, show='headings', height=10)
+
+        for col in columns:
+            tree.heading(col, text=col)
+            tree.column(col, width=150)
+
+        tree.pack(fill=tk.BOTH, expand=True)
+
+        # Populate with other requests
+        for item in self.traffic_items:
+            if item != self.selected_request:
+                tree.insert('', tk.END, values=(
+                    item.get('method', ''),
+                    item.get('host', ''),
+                    item.get('path', ''),
+                    item.get('status_code', '')
+                ))
+
+        # Details area
+        right_text = scrolledtext.ScrolledText(right_frame, wrap=tk.WORD, height=20)
+        right_text.pack(fill=tk.BOTH, expand=True, pady=5)
+
+        def on_compare_select(event):
+            selection = tree.selection()
+            if selection:
+                idx = tree.index(selection[0])
+                compare_requests = [item for item in self.traffic_items if item != self.selected_request]
+                if idx < len(compare_requests):
+                    right_text.delete('1.0', tk.END)
+                    right_text.insert('1.0', json.dumps(compare_requests[idx], indent=2, default=str))
+
+        tree.bind('<<TreeviewSelect>>', on_compare_select)
 
     def show_search_dialog(self):
         """Show advanced search dialog"""
-        messagebox.showinfo("Search", "Advanced search - implementation pending")
+        search_window = tk.Toplevel(self.root)
+        search_window.title("Advanced Search")
+        search_window.geometry("600x400")
+
+        # Search controls
+        control_frame = ttk.LabelFrame(search_window, text="Search Options", padding=10)
+        control_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        ttk.Label(control_frame, text="Search Term:").grid(row=0, column=0, sticky=tk.W, pady=5)
+        search_entry = ttk.Entry(control_frame, width=40)
+        search_entry.grid(row=0, column=1, padx=5, pady=5)
+
+        regex_var = tk.BooleanVar()
+        ttk.Checkbutton(control_frame, text="Use Regex", variable=regex_var).grid(row=1, column=1, sticky=tk.W)
+
+        case_var = tk.BooleanVar()
+        ttk.Checkbutton(control_frame, text="Case Sensitive", variable=case_var).grid(row=2, column=1, sticky=tk.W)
+
+        # Search in options
+        ttk.Label(control_frame, text="Search In:").grid(row=3, column=0, sticky=tk.W, pady=5)
+        search_in_frame = ttk.Frame(control_frame)
+        search_in_frame.grid(row=3, column=1, sticky=tk.W)
+
+        search_url_var = tk.BooleanVar(value=True)
+        search_headers_var = tk.BooleanVar(value=True)
+        search_body_var = tk.BooleanVar(value=True)
+
+        ttk.Checkbutton(search_in_frame, text="URL", variable=search_url_var).pack(side=tk.LEFT, padx=5)
+        ttk.Checkbutton(search_in_frame, text="Headers", variable=search_headers_var).pack(side=tk.LEFT, padx=5)
+        ttk.Checkbutton(search_in_frame, text="Body", variable=search_body_var).pack(side=tk.LEFT, padx=5)
+
+        # Results frame
+        results_frame = ttk.LabelFrame(search_window, text="Search Results", padding=5)
+        results_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        results_tree = ttk.Treeview(results_frame, columns=('Method', 'URL', 'Match'), show='headings')
+        results_tree.heading('Method', text='Method')
+        results_tree.heading('URL', text='URL')
+        results_tree.heading('Match', text='Match Location')
+        results_tree.pack(fill=tk.BOTH, expand=True)
+
+        def do_search():
+            results_tree.delete(*results_tree.get_children())
+            search_term = search_entry.get()
+            if not search_term:
+                return
+
+            pattern = search_term
+            if regex_var.get():
+                try:
+                    if case_var.get():
+                        pattern = re.compile(search_term)
+                    else:
+                        pattern = re.compile(search_term, re.IGNORECASE)
+                except re.error as e:
+                    messagebox.showerror("Regex Error", f"Invalid regex: {e}")
+                    return
+
+            for item in self.traffic_items:
+                matches = []
+                if search_url_var.get():
+                    url = item.get('url', '')
+                    if regex_var.get():
+                        if pattern.search(url):
+                            matches.append('URL')
+                    else:
+                        if (case_var.get() and search_term in url) or (not case_var.get() and search_term.lower() in url.lower()):
+                            matches.append('URL')
+
+                if search_headers_var.get():
+                    headers = str(item.get('request_headers', '')) + str(item.get('response_headers', ''))
+                    if regex_var.get():
+                        if pattern.search(headers):
+                            matches.append('Headers')
+                    else:
+                        if (case_var.get() and search_term in headers) or (not case_var.get() and search_term.lower() in headers.lower()):
+                            matches.append('Headers')
+
+                if search_body_var.get():
+                    body = str(item.get('request_body', '')) + str(item.get('response_body', ''))
+                    if regex_var.get():
+                        if pattern.search(body):
+                            matches.append('Body')
+                    else:
+                        if (case_var.get() and search_term in body) or (not case_var.get() and search_term.lower() in body.lower()):
+                            matches.append('Body')
+
+                if matches:
+                    results_tree.insert('', tk.END, values=(
+                        item.get('method', ''),
+                        item.get('url', ''),
+                        ', '.join(matches)
+                    ))
+
+        ttk.Button(control_frame, text="Search", command=do_search).grid(row=4, column=1, pady=10, sticky=tk.W)
 
     def show_certificate_viewer(self):
         """Show certificate viewer"""
-        messagebox.showinfo("Certificates", "Certificate viewer - implementation pending")
+        if not self.selected_request:
+            messagebox.showwarning("No Selection", "Please select an HTTPS request first")
+            return
+
+        cert_window = tk.Toplevel(self.root)
+        cert_window.title("Certificate Viewer")
+        cert_window.geometry("700x600")
+
+        cert_text = scrolledtext.ScrolledText(cert_window, wrap=tk.WORD)
+        cert_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        # Get certificate info if available
+        cert_info = self.selected_request.get('certificate', {})
+        if not cert_info:
+            cert_text.insert('1.0', "No certificate information available for this request.\n\n")
+            cert_text.insert('end', "Certificate details are only available for HTTPS connections\n")
+            cert_text.insert('end', "when the proxy has intercepted the SSL/TLS handshake.")
+        else:
+            cert_text.insert('1.0', "Certificate Information\n")
+            cert_text.insert('end', "=" * 50 + "\n\n")
+            cert_text.insert('end', json.dumps(cert_info, indent=2))
+
+        cert_text.config(state=tk.DISABLED)
 
     def start_packet_capture(self):
         """Start packet capture"""
-        messagebox.showinfo("Packet Capture", "Packet capture start - implementation pending")
+        if self.packet_capture_running:
+            messagebox.showwarning("Already Running", "Packet capture is already running")
+            return
+
+        try:
+            from packet_capture import PacketCapture
+            self.packet_capture = PacketCapture(interface=self.config.get('packet_capture_interface'))
+
+            def capture_thread():
+                try:
+                    self.packet_capture.start_capture(callback=self._on_packet_captured)
+                except Exception as e:
+                    messagebox.showerror("Capture Error", f"Failed to start packet capture: {e}\n\nTry running with sudo/admin privileges")
+                    self.packet_capture_running = False
+
+            threading.Thread(target=capture_thread, daemon=True).start()
+            self.packet_capture_running = True
+            self.status_label.config(text="Packet capture started")
+            messagebox.showinfo("Packet Capture", "Packet capture started successfully!\n\nNote: Requires root/admin privileges on most systems.")
+        except ImportError:
+            messagebox.showerror("Module Missing", "packet_capture module not found")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to start packet capture: {e}")
+
+    def _on_packet_captured(self, packet_data):
+        """Callback for packet capture"""
+        self.captured_packets.append(packet_data)
 
     def stop_packet_capture(self):
         """Stop packet capture"""
-        messagebox.showinfo("Packet Capture", "Packet capture stop - implementation pending")
+        if not self.packet_capture_running:
+            messagebox.showwarning("Not Running", "Packet capture is not running")
+            return
+
+        if self.packet_capture:
+            self.packet_capture.stop_capture()
+            self.packet_capture = None
+
+        self.packet_capture_running = False
+        self.status_label.config(text=f"Packet capture stopped. Captured {len(self.captured_packets)} packets")
+        messagebox.showinfo("Packet Capture", f"Stopped packet capture\n\nTotal packets captured: {len(self.captured_packets)}")
 
     def show_shortcuts(self):
         """Show keyboard shortcuts"""
@@ -902,7 +1391,37 @@ Built with Python and Tkinter
 
     def copy_curl(self):
         """Copy as cURL command"""
-        messagebox.showinfo("Copy cURL", "Feature implementation pending")
+        if not self.selected_request:
+            messagebox.showwarning("No Selection", "Please select a request first")
+            return
+
+        try:
+            method = self.selected_request.get('method', 'GET')
+            url = self.selected_request.get('url', '')
+            headers = self.selected_request.get('request_headers', {})
+            body = self.selected_request.get('request_body', '')
+
+            # Build cURL command
+            curl_cmd = f"curl -X {method} '{url}'"
+
+            # Add headers
+            for header_name, header_value in headers.items():
+                curl_cmd += f" \\\n  -H '{header_name}: {header_value}'"
+
+            # Add body if present
+            if body and method in ['POST', 'PUT', 'PATCH']:
+                # Escape single quotes in body
+                escaped_body = body.replace("'", "'\\''")
+                curl_cmd += f" \\\n  -d '{escaped_body}'"
+
+            # Copy to clipboard
+            self.root.clipboard_clear()
+            self.root.clipboard_append(curl_cmd)
+            self.status_label.config(text="cURL command copied to clipboard")
+            messagebox.showinfo("Copied", "cURL command copied to clipboard")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to generate cURL command: {e}")
 
     def replay_selected(self):
         """Replay selected request"""
@@ -953,7 +1472,38 @@ Built with Python and Tkinter
 
     def render_html(self):
         """Render HTML in browser"""
-        messagebox.showinfo("Render HTML", "HTML rendering - implementation pending")
+        if not self.selected_request:
+            messagebox.showwarning("No Selection", "Please select a request first")
+            return
+
+        response_body = self.selected_request.get('response_body', '')
+        if not response_body:
+            messagebox.showwarning("No HTML", "No response body available")
+            return
+
+        # Check if response is HTML
+        content_type = self.selected_request.get('content_type', '')
+        if 'html' not in content_type.lower():
+            result = messagebox.askyesno("Not HTML",
+                f"Content-Type is '{content_type}', not HTML.\nRender anyway?")
+            if not result:
+                return
+
+        # Create temporary HTML file
+        import tempfile
+        import webbrowser
+
+        try:
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
+                f.write(response_body)
+                temp_path = f.name
+
+            # Open in browser
+            webbrowser.open(f'file://{temp_path}')
+            self.status_label.config(text=f"Opened HTML in browser: {temp_path}")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to render HTML: {e}")
 
     def clear_websocket_messages(self):
         """Clear WebSocket messages"""
@@ -1039,15 +1589,277 @@ Built with Python and Tkinter
 
     def show_statistics(self):
         """Show statistics dashboard"""
-        messagebox.showinfo("Statistics", "Statistics dashboard - implementation pending")
+        stats_window = tk.Toplevel(self.root)
+        stats_window.title("Statistics Dashboard")
+        stats_window.geometry("800x600")
+
+        # Create notebook for different stats tabs
+        notebook = ttk.Notebook(stats_window)
+        notebook.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        # General Stats Tab
+        general_frame = ttk.Frame(notebook)
+        notebook.add(general_frame, text="General")
+
+        stats_text = scrolledtext.ScrolledText(general_frame, wrap=tk.WORD, width=80, height=30)
+        stats_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        # Calculate statistics
+        total_requests = len(self.traffic_items)
+        methods_count = defaultdict(int)
+        status_codes = defaultdict(int)
+        hosts = defaultdict(int)
+        total_size = 0
+        total_duration = 0
+
+        for item in self.traffic_items:
+            methods_count[item.get('method', 'Unknown')] += 1
+            status_codes[item.get('status_code', 0)] += 1
+            hosts[item.get('host', 'Unknown')] += 1
+            total_size += item.get('response_size', 0)
+            total_duration += item.get('duration', 0)
+
+        # Display statistics
+        stats_info = f"""Traffic Statistics
+==================
+
+Total Requests: {total_requests}
+Total Data Transferred: {total_size:,} bytes ({total_size / 1024 / 1024:.2f} MB)
+Average Duration: {total_duration / max(total_requests, 1):.2f} ms
+Total Duration: {total_duration:.2f} ms
+
+HTTP Methods:
+-------------
+"""
+        for method, count in sorted(methods_count.items(), key=lambda x: x[1], reverse=True):
+            percentage = (count / total_requests * 100) if total_requests > 0 else 0
+            stats_info += f"{method}: {count} ({percentage:.1f}%)\n"
+
+        stats_info += "\nStatus Codes:\n-------------\n"
+        for code, count in sorted(status_codes.items()):
+            percentage = (count / total_requests * 100) if total_requests > 0 else 0
+            stats_info += f"{code}: {count} ({percentage:.1f}%)\n"
+
+        stats_info += "\nTop Hosts:\n----------\n"
+        for host, count in sorted(hosts.items(), key=lambda x: x[1], reverse=True)[:10]:
+            percentage = (count / total_requests * 100) if total_requests > 0 else 0
+            stats_info += f"{host}: {count} ({percentage:.1f}%)\n"
+
+        if self.proxy and hasattr(self.proxy, 'stats'):
+            stats_info += f"\n\nProxy Statistics:\n=================\n"
+            stats_info += f"Connections Handled: {self.proxy.stats.connections_handled}\n"
+            stats_info += f"Bytes Sent: {self.proxy.stats.bytes_sent:,}\n"
+            stats_info += f"Bytes Received: {self.proxy.stats.bytes_received:,}\n"
+            stats_info += f"Errors: {self.proxy.stats.errors}\n"
+
+        stats_text.insert('1.0', stats_info)
+        stats_text.config(state=tk.DISABLED)
 
     def show_replay_dialog(self):
         """Show request replay dialog"""
-        messagebox.showinfo("Replay", "Request replay - implementation pending")
+        if not self.selected_request:
+            messagebox.showwarning("No Selection", "Please select a request to replay")
+            return
+
+        replay_window = tk.Toplevel(self.root)
+        replay_window.title("Replay Request")
+        replay_window.geometry("800x600")
+
+        # Request details
+        detail_frame = ttk.LabelFrame(replay_window, text="Request Details", padding=10)
+        detail_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        detail_text = scrolledtext.ScrolledText(detail_frame, wrap=tk.WORD, height=20)
+        detail_text.pack(fill=tk.BOTH, expand=True)
+
+        request_info = f"""Method: {self.selected_request.get('method', '')}
+URL: {self.selected_request.get('url', '')}
+Host: {self.selected_request.get('host', '')}
+Path: {self.selected_request.get('path', '')}
+
+Headers:
+{json.dumps(self.selected_request.get('request_headers', {}), indent=2)}
+
+Body:
+{self.selected_request.get('request_body', '')}
+"""
+        detail_text.insert('1.0', request_info)
+
+        # Replay options
+        options_frame = ttk.LabelFrame(replay_window, text="Replay Options", padding=10)
+        options_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        ttk.Label(options_frame, text="Repeat Count:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
+        repeat_entry = ttk.Entry(options_frame, width=10)
+        repeat_entry.insert(0, "1")
+        repeat_entry.grid(row=0, column=1, sticky=tk.W, padx=5, pady=5)
+
+        ttk.Label(options_frame, text="Delay (ms):").grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
+        delay_entry = ttk.Entry(options_frame, width=10)
+        delay_entry.insert(0, "0")
+        delay_entry.grid(row=1, column=1, sticky=tk.W, padx=5, pady=5)
+
+        # Results
+        results_text = scrolledtext.ScrolledText(replay_window, wrap=tk.WORD, height=10)
+        results_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        def do_replay():
+            try:
+                import socket
+                import urllib.parse
+
+                repeat_count = int(repeat_entry.get())
+                delay_ms = int(delay_entry.get())
+
+                results_text.delete('1.0', tk.END)
+                results_text.insert('end', f"Replaying request {repeat_count} time(s)...\n\n")
+
+                for i in range(repeat_count):
+                    try:
+                        # Parse URL
+                        url = self.selected_request.get('url', '')
+                        parsed = urllib.parse.urlparse(url)
+                        host = parsed.hostname or self.selected_request.get('host', '')
+                        port = parsed.port or (443 if parsed.scheme == 'https' else 80)
+                        path = parsed.path or '/'
+
+                        # Create connection
+                        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        sock.settimeout(10)
+                        sock.connect((host, port))
+
+                        # Build request
+                        method = self.selected_request.get('method', 'GET')
+                        request_line = f"{method} {path} HTTP/1.1\r\n"
+                        headers = f"Host: {host}\r\n"
+                        headers += "Connection: close\r\n\r\n"
+
+                        sock.sendall((request_line + headers).encode())
+
+                        # Receive response
+                        response = b''
+                        while True:
+                            chunk = sock.recv(4096)
+                            if not chunk:
+                                break
+                            response += chunk
+
+                        sock.close()
+
+                        # Parse response
+                        response_str = response.decode('utf-8', errors='ignore')
+                        status_line = response_str.split('\r\n')[0] if response_str else 'No response'
+
+                        results_text.insert('end', f"[{i+1}/{repeat_count}] {status_line}\n")
+
+                        if delay_ms > 0 and i < repeat_count - 1:
+                            time.sleep(delay_ms / 1000.0)
+
+                    except Exception as e:
+                        results_text.insert('end', f"[{i+1}/{repeat_count}] Error: {e}\n")
+
+                results_text.insert('end', "\nReplay completed!\n")
+
+            except ValueError:
+                messagebox.showerror("Invalid Input", "Please enter valid numbers")
+            except Exception as e:
+                messagebox.showerror("Replay Error", f"Failed to replay request: {e}")
+
+        ttk.Button(options_frame, text="Replay", command=do_replay).grid(row=2, column=0, columnspan=2, pady=10)
 
     def show_decoder_dialog(self):
         """Show decoder dialog"""
-        messagebox.showinfo("Decoder", "Decoder tool - implementation pending")
+        decoder_window = tk.Toplevel(self.root)
+        decoder_window.title("Content Decoder Tool")
+        decoder_window.geometry("900x700")
+
+        # Input frame
+        input_frame = ttk.LabelFrame(decoder_window, text="Input", padding=10)
+        input_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        input_text = scrolledtext.ScrolledText(input_frame, wrap=tk.WORD, height=15)
+        input_text.pack(fill=tk.BOTH, expand=True)
+
+        # Controls
+        control_frame = ttk.Frame(decoder_window)
+        control_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        ttk.Label(control_frame, text="Decode As:").pack(side=tk.LEFT, padx=5)
+
+        decode_type = ttk.Combobox(control_frame, values=[
+            'Base64',
+            'URL Encoded',
+            'HTML Entities',
+            'JSON',
+            'Hex',
+            'Gzip',
+            'JWT'
+        ], width=15)
+        decode_type.set('Base64')
+        decode_type.pack(side=tk.LEFT, padx=5)
+
+        def do_decode():
+            input_data = input_text.get('1.0', tk.END).strip()
+            if not input_data:
+                return
+
+            try:
+                dtype = decode_type.get()
+                result = ""
+
+                if dtype == 'Base64':
+                    import base64
+                    result = base64.b64decode(input_data).decode('utf-8', errors='ignore')
+
+                elif dtype == 'URL Encoded':
+                    import urllib.parse
+                    result = urllib.parse.unquote(input_data)
+
+                elif dtype == 'HTML Entities':
+                    import html
+                    result = html.unescape(input_data)
+
+                elif dtype == 'JSON':
+                    import json
+                    obj = json.loads(input_data)
+                    result = json.dumps(obj, indent=2)
+
+                elif dtype == 'Hex':
+                    result = bytes.fromhex(input_data.replace(' ', '')).decode('utf-8', errors='ignore')
+
+                elif dtype == 'Gzip':
+                    import base64, gzip
+                    compressed = base64.b64decode(input_data)
+                    result = gzip.decompress(compressed).decode('utf-8', errors='ignore')
+
+                elif dtype == 'JWT':
+                    import base64, json
+                    parts = input_data.split('.')
+                    if len(parts) >= 2:
+                        header = json.loads(base64.b64decode(parts[0] + '==').decode())
+                        payload = json.loads(base64.b64decode(parts[1] + '==').decode())
+                        result = f"Header:\n{json.dumps(header, indent=2)}\n\nPayload:\n{json.dumps(payload, indent=2)}"
+
+                output_text.delete('1.0', tk.END)
+                output_text.insert('1.0', result)
+
+            except Exception as e:
+                messagebox.showerror("Decode Error", f"Failed to decode: {e}")
+
+        ttk.Button(control_frame, text="Decode", command=do_decode).pack(side=tk.LEFT, padx=5)
+
+        # Output frame
+        output_frame = ttk.LabelFrame(decoder_window, text="Output", padding=10)
+        output_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        output_text = scrolledtext.ScrolledText(output_frame, wrap=tk.WORD, height=15)
+        output_text.pack(fill=tk.BOTH, expand=True)
+
+        # Pre-fill if request is selected
+        if self.selected_request:
+            body = self.selected_request.get('response_body', '')
+            if body:
+                input_text.insert('1.0', body)
 
 
 def main():

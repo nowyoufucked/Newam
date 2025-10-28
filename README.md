@@ -17,6 +17,8 @@ A powerful Python-based proxy server for monitoring, analyzing, and replaying HT
 ## Quick Start
 
 ### GUI (Recommended for most users)
+
+**Basic GUI:**
 ```bash
 # Linux/macOS
 ./launch_gui.sh
@@ -26,6 +28,15 @@ launch_gui.bat
 
 # Or directly
 python3 gui.py
+```
+
+**Enhanced GUI (with all advanced features):**
+```bash
+# Directly
+python3 enhanced_gui.py
+
+# Note: Some features (packet capture) require root/admin privileges
+sudo python3 enhanced_gui.py  # Linux/macOS with packet capture
 ```
 
 ### Command Line
@@ -44,7 +55,8 @@ wireshark capture.pcap
 
 ## Features
 
-### 🖥️ Graphical User Interface (NEW!)
+### 🖥️ Graphical User Interface
+**Basic GUI (gui.py)**:
 - **Modern tkinter interface** - Clean, intuitive design
 - **Live traffic monitoring** - Real-time updates as traffic flows
 - **Request/Response viewer** - Detailed inspection with tabs
@@ -56,6 +68,24 @@ wireshark capture.pcap
 - **Built-in decoder tools** - Quick JWT, Base64, URL decoding
 - **Dark/Light themes** - Comfortable viewing in any lighting
 - **Cross-platform** - Works on Windows, macOS, Linux
+
+**Enhanced GUI (enhanced_gui.py - NEW v5.0)**:
+- ⭐ **All Basic GUI Features** - Everything from gui.py
+- 📁 **Session Management** - Multiple sessions with tabs
+- 🌐 **WebSocket Viewer** - Dedicated tab for WebSocket messages
+- 🔍 **DNS Query Viewer** - Monitor and analyze DNS queries
+- 📦 **Packet Details Tab** - View packet headers (Ethernet/IP/TCP/UDP)
+- 🔎 **Regex Search** - Advanced search with regular expressions
+- 📊 **Timeline View** - Visualize requests on timeline
+- 🔄 **Session Comparison** - Compare traffic between sessions
+- 📤 **Multiple Export Formats** - HAR, PCAP, JSON, CSV
+- ⌨️ **Keyboard Shortcuts** - 10+ shortcuts for efficiency
+- 📋 **Context Menu** - Right-click for quick actions
+- 🔐 **Certificate Viewer** - View TLS certificate details
+- ⏱️ **Timing Tab** - Detailed request timing breakdown
+- 🎯 **Enhanced Filtering** - Multi-field filters with regex
+
+**See [GUI_ENHANCEMENTS.md](GUI_ENHANCEMENTS.md) for comprehensive GUI documentation.**
 
 ### Core Proxy Features
 - 🔍 Real-time HTTP/HTTPS traffic monitoring
@@ -121,18 +151,19 @@ wireshark capture.pcap
 
 ## Tools Included
 
-1. **gui.py** - Graphical user interface
-2. **enhanced_proxy.py** - Advanced proxy with WebSocket, DNS tracking, and more
-3. **packet_capture.py** - Raw packet capture at all network layers (NEW!)
-4. **protocol_dissectors.py** - Multi-layer protocol parsers (Ethernet/IP/TCP/UDP/HTTP/DNS) (NEW!)
-5. **pcap_writer.py** - PCAP/PCAPNG file format reader/writer (NEW!)
-6. **http_https_viewer.py** - Main proxy server with enhanced features
-7. **request_replay.py** - Replay requests from HAR files
-8. **traffic_analyzer.py** - Analyze captured traffic and generate reports
-9. **decoders.py** - Standalone decoder utility for various formats
-10. **advanced_capture.py** - Advanced traffic capture modules
-11. **cert_generator.py** - Generate SSL certificates (optional)
-12. **example_client.py** - Test client for proxy validation
+1. **enhanced_gui.py** - Advanced GUI with packet capture, WebSocket, DNS, session management (NEW!)
+2. **gui.py** - Basic graphical user interface
+3. **enhanced_proxy.py** - Advanced proxy with WebSocket, DNS tracking, and more
+4. **packet_capture.py** - Raw packet capture at all network layers
+5. **protocol_dissectors.py** - Multi-layer protocol parsers (Ethernet/IP/TCP/UDP/HTTP/DNS)
+6. **pcap_writer.py** - PCAP/PCAPNG file format reader/writer
+7. **http_https_viewer.py** - Main proxy server with enhanced features
+8. **request_replay.py** - Replay requests from HAR files
+9. **traffic_analyzer.py** - Analyze captured traffic and generate reports
+10. **decoders.py** - Standalone decoder utility for various formats
+11. **advanced_capture.py** - Advanced traffic capture modules
+12. **cert_generator.py** - Generate SSL certificates (optional)
+13. **example_client.py** - Test client for proxy validation
 
 ## Requirements
 

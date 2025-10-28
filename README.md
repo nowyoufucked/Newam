@@ -1,6 +1,7 @@
 # HTTP/HTTPS Traffic Viewer - Enhanced Edition
 
 A powerful Python-based proxy server for monitoring, analyzing, and replaying HTTP and HTTPS traffic from targeted applications.
+**Now with GUI!** 🎨
 
 ## ⚠️ Important Security Warning
 
@@ -13,7 +14,39 @@ A powerful Python-based proxy server for monitoring, analyzing, and replaying HT
 - ❌ DO NOT use to capture credentials or sensitive data from others
 - ❌ Unauthorized interception of network traffic may be illegal in your jurisdiction
 
+## Quick Start
+
+### GUI (Recommended for most users)
+```bash
+# Linux/macOS
+./launch_gui.sh
+
+# Windows
+launch_gui.bat
+
+# Or directly
+python3 gui.py
+```
+
+### Command Line
+```bash
+python3 http_https_viewer.py -v -b
+```
+
 ## Features
+
+### 🖥️ Graphical User Interface (NEW!)
+- **Modern tkinter interface** - Clean, intuitive design
+- **Live traffic monitoring** - Real-time updates as traffic flows
+- **Request/Response viewer** - Detailed inspection with tabs
+- **Automatic decoding** - Visual display of decoded content
+- **Interactive filtering** - Filter by domain, method, status
+- **Statistics dashboard** - Real-time metrics and charts
+- **HAR export/import** - Save and load traffic sessions
+- **Request replay** - Replay requests with modifications
+- **Built-in decoder tools** - Quick JWT, Base64, URL decoding
+- **Dark/Light themes** - Comfortable viewing in any lighting
+- **Cross-platform** - Works on Windows, macOS, Linux
 
 ### Core Proxy Features
 - 🔍 Real-time HTTP/HTTPS traffic monitoring
@@ -48,16 +81,18 @@ A powerful Python-based proxy server for monitoring, analyzing, and replaying HT
 
 ## Tools Included
 
-1. **http_https_viewer.py** - Main proxy server with enhanced features
-2. **request_replay.py** - Replay requests from HAR files
-3. **traffic_analyzer.py** - Analyze captured traffic and generate reports
-4. **decoders.py** - Standalone decoder utility for various formats
-5. **cert_generator.py** - Generate SSL certificates (optional)
-6. **example_client.py** - Test client for proxy validation
+1. **gui.py** - Graphical user interface (NEW!)
+2. **http_https_viewer.py** - Main proxy server with enhanced features
+3. **request_replay.py** - Replay requests from HAR files
+4. **traffic_analyzer.py** - Analyze captured traffic and generate reports
+5. **decoders.py** - Standalone decoder utility for various formats
+6. **cert_generator.py** - Generate SSL certificates (optional)
+7. **example_client.py** - Test client for proxy validation
 
 ## Requirements
 
 - Python 3.6 or higher
+- tkinter (for GUI - usually included with Python)
 - No external dependencies for basic proxy functionality
 - Optional: `requests` library for request replay utility
 - Optional: `cryptography` package for SSL certificate generation
@@ -72,7 +107,63 @@ A powerful Python-based proxy server for monitoring, analyzing, and replaying HT
 
 ## Usage
 
-### Main Proxy Server
+### Graphical User Interface (GUI)
+
+The GUI provides the easiest way to use the traffic viewer with all features accessible through a modern interface.
+
+#### Launching the GUI
+
+**Linux/macOS:**
+```bash
+./launch_gui.sh
+# Or directly:
+python3 gui.py
+```
+
+**Windows:**
+```batch
+launch_gui.bat
+REM Or directly:
+python gui.py
+```
+
+#### GUI Features
+
+- **Proxy Control Panel**: Start/stop proxy, configure host and port
+- **Live Traffic List**: Real-time traffic updates with color-coding
+  - Green: Success (2xx)
+  - Blue: Redirect (3xx)
+  - Orange: Client errors (4xx)
+  - Red: Server errors (5xx)
+- **Request/Response Viewer**: Tabbed interface showing:
+  - Overview: Summary of request/response
+  - Headers: All request and response headers
+  - Request Body: Formatted request content
+  - Response Body: Formatted response content (auto JSON pretty print)
+  - Decoded: Automatically decoded JWT, cookies, form data
+- **Filtering**: Filter by domain, HTTP method, or status code
+- **Statistics**: View comprehensive traffic statistics
+- **HAR Export/Import**: Save and load traffic sessions
+- **Request Replay**: Replay captured requests with modifications
+- **Decoder Tools**: Quick decode JWT, Base64, URL encoding, etc.
+- **Theme Toggle**: Switch between light and dark themes
+
+#### Quick GUI Workflow
+
+```
+1. Launch GUI (./launch_gui.sh or launch_gui.bat)
+2. Configure Host/Port (default 127.0.0.1:8888 works for most cases)
+3. Click "Start Proxy"
+4. Configure your application to use the proxy
+5. Watch requests appear in real-time
+6. Click any request to see full details
+7. Use "Decoded" tab to see parsed JWT, cookies, etc.
+8. Export to HAR when done for analysis
+```
+
+For comprehensive GUI documentation, see [GUI.md](GUI.md).
+
+### Main Proxy Server (Command Line)
 
 #### Basic Usage
 
@@ -579,6 +670,23 @@ This tool is designed for defensive security and development. Contributions that
 This project is provided as-is for educational and development purposes.
 
 ## Changelog
+
+### Version 4.0 (Graphical User Interface)
+- Added complete GUI application (gui.py)
+- Modern tkinter-based interface
+- Live traffic monitoring with real-time updates
+- Interactive request/response viewer with tabs
+- Visual decoding panel for JWT, cookies, form data
+- Proxy control panel (start/stop, configuration)
+- Advanced filtering interface
+- Statistics dashboard with metrics
+- HAR export/import functionality
+- Request replay interface
+- Built-in decoder tools (Base64, JWT, URL)
+- Dark/Light theme support
+- Cross-platform support (Windows, macOS, Linux)
+- Launch scripts for easy startup
+- Comprehensive GUI documentation
 
 ### Version 3.0 (Advanced Decoding)
 - Added comprehensive decoding module (decoders.py)

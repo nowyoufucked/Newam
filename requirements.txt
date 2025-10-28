@@ -1,0 +1,8 @@
+# HTTP/HTTPS Traffic Viewer - Python Dependencies
+# No external dependencies required for basic proxy functionality
+
+# Optional: For SSL certificate generation
+cryptography>=41.0.0
+
+# Optional: For enhanced features (if needed in future)
+# colorama>=0.4.6  # For Windows color support

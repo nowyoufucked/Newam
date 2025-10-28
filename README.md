@@ -79,15 +79,30 @@ python3 http_https_viewer.py -v -b
 - 📦 **Base64 Decoding** - Decode Base64 content
 - 🔗 **URL Decoding** - Decode percent-encoded URLs
 
+### Advanced Capture Features (v4.0 - NEW!)
+- 🌐 **WebSocket Support** - Full bidirectional WebSocket traffic capture and monitoring
+- 🖥️ **System Proxy Auto-Config** - Automatically configure system-wide proxy settings
+- 🔗 **Upstream Proxy Support** - Chain through corporate or other proxy servers
+- 🌍 **DNS Resolution Tracking** - Monitor and cache DNS lookups with timing
+- ⚡ **Connection Pooling** - Reuse connections for improved performance (HTTP keep-alive)
+- 📦 **Chunked Transfer Encoding** - Handle streaming and large file transfers
+- 🎯 **Traffic Capture Modes** - Promiscuous, selective, stealth, and debug modes
+- 🔄 **Redirect Chain Tracking** - Track complete HTTP redirect flows
+- 📊 **Advanced Statistics** - WebSocket counts, DNS metrics, connection reuse rates
+
+**See [ADVANCED.md](ADVANCED.md) for comprehensive documentation on advanced features.**
+
 ## Tools Included
 
-1. **gui.py** - Graphical user interface (NEW!)
-2. **http_https_viewer.py** - Main proxy server with enhanced features
-3. **request_replay.py** - Replay requests from HAR files
-4. **traffic_analyzer.py** - Analyze captured traffic and generate reports
-5. **decoders.py** - Standalone decoder utility for various formats
-6. **cert_generator.py** - Generate SSL certificates (optional)
-7. **example_client.py** - Test client for proxy validation
+1. **gui.py** - Graphical user interface
+2. **enhanced_proxy.py** - Advanced proxy with WebSocket, DNS tracking, and more (NEW!)
+3. **http_https_viewer.py** - Main proxy server with enhanced features
+4. **request_replay.py** - Replay requests from HAR files
+5. **traffic_analyzer.py** - Analyze captured traffic and generate reports
+6. **decoders.py** - Standalone decoder utility for various formats
+7. **advanced_capture.py** - Advanced traffic capture modules (NEW!)
+8. **cert_generator.py** - Generate SSL certificates (optional)
+9. **example_client.py** - Test client for proxy validation
 
 ## Requirements
 
@@ -162,6 +177,68 @@ python gui.py
 ```
 
 For comprehensive GUI documentation, see [GUI.md](GUI.md).
+
+### Enhanced Proxy with Advanced Capture (NEW!)
+
+The enhanced proxy includes all features from the basic proxy plus advanced capabilities to ensure no traffic is missed.
+
+#### Quick Start
+
+```bash
+# Start with all advanced features
+./enhanced_proxy.py --port 8888 --enable-websocket
+
+# With system-wide proxy configuration
+./enhanced_proxy.py --port 8888 --enable-system-proxy
+
+# With upstream corporate proxy
+./enhanced_proxy.py --port 8888 --upstream-proxy http://proxy.company.com:8080
+
+# Debug mode for troubleshooting
+./enhanced_proxy.py --port 8888 --capture-mode debug
+```
+
+#### Key Features
+
+- **WebSocket Support**: Captures real-time bidirectional WebSocket traffic
+- **System Proxy Auto-Config**: Automatically configures OS proxy settings (Windows/macOS/Linux)
+- **Upstream Proxy Chaining**: Works through corporate or other proxy servers
+- **DNS Tracking**: Monitors and caches all DNS resolutions with timing
+- **Connection Pooling**: Reuses connections for better performance
+- **Chunked Encoding**: Handles streaming and large file transfers
+- **Multiple Capture Modes**: Choose from promiscuous, selective, stealth, or debug modes
+
+#### Examples
+
+**Capture WebSocket traffic:**
+```bash
+./enhanced_proxy.py --port 8888 --enable-websocket
+```
+
+**System-wide traffic capture:**
+```bash
+# Requires admin/root privileges
+sudo ./enhanced_proxy.py --enable-system-proxy
+```
+
+**Corporate network setup:**
+```bash
+./enhanced_proxy.py --upstream-proxy http://user:pass@proxy.corp.com:3128
+```
+
+**Selective capture (specific domains):**
+```python
+from enhanced_proxy import EnhancedHTTPSViewer
+
+viewer = EnhancedHTTPSViewer(port=8888, capture_mode='selective')
+viewer.capture_mode.set_filter(
+    domains=['api.example.com', 'auth.example.com'],
+    methods=['POST', 'PUT', 'DELETE']
+)
+viewer.start()
+```
+
+**Full documentation**: See [ADVANCED.md](ADVANCED.md) for comprehensive advanced features documentation including troubleshooting, API reference, and integration examples.
 
 ### Main Proxy Server (Command Line)
 

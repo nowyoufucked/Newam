@@ -148,6 +148,10 @@ class Statistics:
         self.lock = Lock()
         self.total_requests = 0
         self.total_responses = 0
+        self.total_errors = 0  # Added for GUI compatibility
+        self.connections_handled = 0  # Added for GUI compatibility
+        self.bytes_sent = 0  # Added for GUI compatibility
+        self.bytes_received = 0  # Added for GUI compatibility
         self.requests_by_method = defaultdict(int)
         self.requests_by_domain = defaultdict(int)
         self.status_codes = defaultdict(int)
@@ -163,6 +167,7 @@ class Statistics:
             self.requests_by_method[method.upper()] += 1
             self.requests_by_domain[domain] += 1
             self.total_bytes_sent += bytes_sent
+            self.bytes_sent = self.total_bytes_sent  # Sync for GUI
 
     def record_response(self, status_code, bytes_received, response_time):
         """Record a response"""
@@ -170,8 +175,19 @@ class Statistics:
             self.total_responses += 1
             self.status_codes[status_code] += 1
             self.total_bytes_received += bytes_received
+            self.bytes_received = self.total_bytes_received  # Sync for GUI
             if response_time:
                 self.response_times.append(response_time)
+
+    def record_error(self):
+        """Record an error"""
+        with self.lock:
+            self.total_errors += 1
+
+    def record_connection(self):
+        """Record a connection"""
+        with self.lock:
+            self.connections_handled += 1
 
     def get_summary(self):
         """Get statistics summary"""

@@ -219,6 +219,27 @@ class EnhancedHTTPSViewer(HTTPSViewer):
 
                 self.advanced_logger(f"HTTPS CONNECT to {target_host}:{target_port} ({target_ip})", "info")
 
+                # Add HTTPS tunnel to history for GUI visibility
+                self.history.add({
+                    'timestamp': time.time(),
+                    'method': 'CONNECT',
+                    'host': target_host,
+                    'path': f':{target_port}',
+                    'url': f"https://{target_host}:{target_port}",
+                    'status_code': 200,  # Tunnel established
+                    'status_text': 'Connection Established',
+                    'headers': {},
+                    'body': b'',
+                    'response_headers': {},
+                    'response_body': '[HTTPS Tunnel - Encrypted]'.encode(),
+                    'response_time': 0,
+                    'info': 'HTTPS tunnel - content encrypted'
+                })
+
+                # Record connection in statistics
+                if hasattr(self, 'stats'):
+                    self.stats.record_connection()
+
                 # Check for existing connection
                 existing_conn = self.connection_tracker.get_connection(target_host, target_port)
                 if existing_conn:

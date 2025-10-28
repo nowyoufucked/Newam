@@ -29,8 +29,9 @@ import sys
 from datetime import datetime
 import select
 import os
+import time
 
-# Import our modules
+# Import our modules - ALL REQUIRED (no optional imports)
 try:
     from http_https_viewer import HTTPSViewer, Colors
     from advanced_capture import (
@@ -39,10 +40,12 @@ try:
         TrafficCaptureMode, RedirectHandler, create_advanced_logger
     )
     from decoders import ContentDecoder
-    MODULES_AVAILABLE = True
 except ImportError as e:
-    print(f"Warning: Some modules not available: {e}")
-    MODULES_AVAILABLE = False
+    print(f"ERROR: Required modules not available: {e}")
+    print("All modules are required. Please ensure all files are present.")
+    sys.exit(1)
+
+MODULES_AVAILABLE = True
 
 
 class EnhancedHTTPSViewer(HTTPSViewer):

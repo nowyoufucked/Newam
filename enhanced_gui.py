@@ -34,7 +34,7 @@ import re
 from collections import defaultdict
 import time
 
-# Import our modules
+# Import our modules - ALL REQUIRED (no optional imports)
 try:
     from http_https_viewer import HTTPSViewer, RequestHistory, Statistics
     from decoders import ContentDecoder
@@ -42,16 +42,12 @@ try:
     from packet_capture import PacketCapture
     from protocol_dissectors import IPPacket, TCPSegment, UDPDatagram, DNSParser
     from pcap_writer import PCAPWriter
-    ENHANCED_MODULES = True
 except ImportError as e:
-    print(f"Warning: Enhanced modules not available: {e}")
-    try:
-        from http_https_viewer import HTTPSViewer, RequestHistory, Statistics
-        from decoders import ContentDecoder
-        ENHANCED_MODULES = False
-    except ImportError as e2:
-        print(f"Error: Basic modules not available: {e2}")
-        sys.exit(1)
+    print(f"ERROR: Required modules not available: {e}")
+    print("All modules are required. Please ensure all files are present.")
+    sys.exit(1)
+
+ENHANCED_MODULES = True
 
 
 class EnhancedTrafficViewerGUI:
@@ -701,7 +697,7 @@ class EnhancedTrafficViewerGUI:
                 self.stats_history['responses'].append(stats.total_responses)
 
                 # Debug log every 5 seconds
-                if int(timestamp) % 5 == 0 and not hasattr(self, '_last_stats_log') or self._last_stats_log != int(timestamp):
+                if int(timestamp) % 5 == 0 and (not hasattr(self, '_last_stats_log') or self._last_stats_log != int(timestamp)):
                     self._last_stats_log = int(timestamp)
                     print(f"[GUI] Stats: Connections={stats.connections_handled if hasattr(stats, 'connections_handled') else 0}, HTTP={http_count}, Items={len(self.traffic_items)}")
 

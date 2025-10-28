@@ -25,13 +25,24 @@ import zlib
 from collections import defaultdict
 from threading import Lock
 
-# Import decoders module
+# Third-party compression library (install via: pip install brotli)
+try:
+    import brotli
+    BROTLI_AVAILABLE = True
+except ImportError:
+    print("WARNING: brotli module not installed. Brotli-compressed content will not be decoded.")
+    print("Install with: pip install brotli")
+    BROTLI_AVAILABLE = False
+
+# Import decoders module - REQUIRED (no optional imports)
 try:
     from decoders import ContentDecoder, DecoderDisplay
-    DECODERS_AVAILABLE = True
-except ImportError:
-    DECODERS_AVAILABLE = False
-    print("Warning: decoders module not found. Advanced decoding features disabled.")
+except ImportError as e:
+    print(f"ERROR: Required decoders module not available: {e}")
+    print("All modules are required. Please ensure decoders.py is present.")
+    sys.exit(1)
+
+DECODERS_AVAILABLE = True
 
 
 class Colors:
@@ -149,6 +160,7 @@ class Statistics:
         self.total_requests = 0
         self.total_responses = 0
         self.total_errors = 0  # Added for GUI compatibility
+        self.errors = 0  # Alias for total_errors - GUI compatibility
         self.connections_handled = 0  # Added for GUI compatibility
         self.bytes_sent = 0  # Added for GUI compatibility
         self.bytes_received = 0  # Added for GUI compatibility
@@ -183,6 +195,7 @@ class Statistics:
         """Record an error"""
         with self.lock:
             self.total_errors += 1
+            self.errors = self.total_errors  # Sync for GUI
 
     def record_connection(self):
         """Record a connection"""
@@ -309,11 +322,10 @@ class HTTPSViewer:
             elif encoding == 'deflate':
                 return zlib.decompress(data)
             elif encoding == 'br':
-                try:
-                    import brotli
+                if BROTLI_AVAILABLE:
                     return brotli.decompress(data)
-                except ImportError:
-                    return data
+                else:
+                    return data  # Return compressed data if brotli not available
             else:
                 return data
         except:

@@ -35,13 +35,25 @@ A powerful Python-based proxy server for monitoring, analyzing, and replaying HT
 - ⚡ **Response Time Tracking** - Monitor performance with millisecond precision
 - 🗜️ **Content Decoding** - Automatic decompression of gzip/deflate/brotli
 
+### Advanced Decoding Features (v3.0)
+- 🔓 **JWT Token Decoding** - Automatically decode and parse JWT tokens in Authorization headers
+- 🔑 **Basic Auth Decoding** - Decode Base64 encoded credentials
+- 🍪 **Cookie Parsing** - Parse and display cookie attributes
+- 📝 **Form Data Parsing** - Decode URL-encoded and multipart form data
+- 🌐 **HTML/XML Formatting** - Pretty print HTML and XML responses
+- 🔢 **Hex Dump Viewer** - View binary data in hex format
+- 🔤 **Character Encoding** - Auto-detect and convert character encodings
+- 📦 **Base64 Decoding** - Decode Base64 content
+- 🔗 **URL Decoding** - Decode percent-encoded URLs
+
 ## Tools Included
 
 1. **http_https_viewer.py** - Main proxy server with enhanced features
 2. **request_replay.py** - Replay requests from HAR files
 3. **traffic_analyzer.py** - Analyze captured traffic and generate reports
-4. **cert_generator.py** - Generate SSL certificates (optional)
-5. **example_client.py** - Test client for proxy validation
+4. **decoders.py** - Standalone decoder utility for various formats
+5. **cert_generator.py** - Generate SSL certificates (optional)
+6. **example_client.py** - Test client for proxy validation
 
 ## Requirements
 
@@ -305,6 +317,51 @@ HAR files can be:
 - Shared with team members
 - Imported into other tools
 
+## Decoder Utility
+
+The standalone decoder tool can quickly decode various formats:
+
+```bash
+python decoders.py [options]
+```
+
+**Supported Decodings:**
+
+```bash
+# Decode Base64
+python decoders.py --base64 "SGVsbG8gV29ybGQh"
+# Output: Hello World!
+
+# Decode JWT Token
+python decoders.py --jwt "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM..."
+# Shows: Header, Payload with decoded timestamps, Signature
+
+# URL Decode
+python decoders.py --url "Hello%20World%21%20How%20are%20you%3F"
+# Output: Hello World! How are you?
+
+# Parse Cookies
+python decoders.py --cookies "session=abc123; user=john; theme=dark"
+# Shows parsed cookie names and values
+
+# Parse Form Data
+python decoders.py --form "username=john&email=john%40example.com&age=30"
+# Shows decoded form fields
+
+# Convert Hex to Text
+python decoders.py --hex "48656c6c6f20576f726c64"
+# Output: Hello World
+```
+
+**Use Cases:**
+- Quick JWT token inspection
+- Decode authentication headers
+- Parse cookie strings
+- Debug form submissions
+- Convert between encodings
+
+See [DECODING.md](DECODING.md) for comprehensive documentation on all decoding features.
+
 ## SSL Certificate Generation (Optional)
 
 For advanced HTTPS interception (not required for basic tunneling):
@@ -522,6 +579,24 @@ This tool is designed for defensive security and development. Contributions that
 This project is provided as-is for educational and development purposes.
 
 ## Changelog
+
+### Version 3.0 (Advanced Decoding)
+- Added comprehensive decoding module (decoders.py)
+- Added JWT token decoding with timestamp conversion
+- Added Basic Authentication Base64 decoding
+- Added Cookie parsing and display
+- Added Set-Cookie attribute parsing
+- Added form data decoding (application/x-www-form-urlencoded)
+- Added multipart form data parsing
+- Added HTML pretty printing
+- Added XML pretty printing
+- Added binary hex dump viewer
+- Added character encoding detection
+- Added URL/percent encoding decoder
+- Added standalone decoder CLI tool
+- Auto-decode headers (Authorization, Cookie, Set-Cookie)
+- Auto-decode request/response bodies based on Content-Type
+- Added --decode/--no-decode flags for control
 
 ### Version 2.0 (Enhanced)
 - Added request/response body viewing

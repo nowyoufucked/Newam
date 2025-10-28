@@ -34,6 +34,7 @@ ENV/
 # Logs and traffic captures (may contain sensitive data)
 *.log
 traffic.log
+*.har
 
 # IDE
 .vscode/

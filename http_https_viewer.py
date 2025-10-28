@@ -25,6 +25,14 @@ import zlib
 from collections import defaultdict
 from threading import Lock
 
+# Import decoders module
+try:
+    from decoders import ContentDecoder, DecoderDisplay
+    DECODERS_AVAILABLE = True
+except ImportError:
+    DECODERS_AVAILABLE = False
+    print("Warning: decoders module not found. Advanced decoding features disabled.")
+
 
 class Colors:
     """ANSI color codes for terminal output"""
@@ -227,7 +235,8 @@ class HTTPSViewer:
 
     def __init__(self, host='127.0.0.1', port=8888, verbose=False, save_to_file=None,
                  filter_domain=None, filter_method=None, filter_status=None,
-                 show_body=False, pretty_json=True, max_body_size=10000):
+                 show_body=False, pretty_json=True, max_body_size=10000,
+                 decode_content=True):
         self.host = host
         self.port = port
         self.verbose = verbose
@@ -236,6 +245,7 @@ class HTTPSViewer:
         self.show_body = show_body
         self.pretty_json = pretty_json
         self.max_body_size = max_body_size
+        self.decode_content = decode_content and DECODERS_AVAILABLE
 
         # Filters
         self.filter_domain = filter_domain
@@ -399,8 +409,47 @@ class HTTPSViewer:
         except:
             return None
 
+    def decode_and_display_headers(self, headers):
+        """Decode and display special headers like Auth, Cookies, etc."""
+        if not self.decode_content or not DECODERS_AVAILABLE:
+            return
+
+        # Decode Authorization header
+        if 'Authorization' in headers:
+            auth = headers['Authorization']
+            # Check for Basic Auth
+            if auth.startswith('Basic '):
+                decoded = ContentDecoder.decode_base64(auth[6:])
+                if decoded:
+                    self.log(f"  {Colors.WARNING}[Decoded Auth]:{Colors.ENDC} {decoded.decode('utf-8', errors='replace')}")
+            # Check for Bearer (JWT)
+            elif auth.startswith('Bearer '):
+                jwt_data = ContentDecoder.decode_jwt(auth)
+                if jwt_data:
+                    self.log(f"  {Colors.WARNING}[JWT Decoded]:{Colors.ENDC}")
+                    self.log(f"    Header: {json.dumps(jwt_data['header'], indent=6)}", Colors.GRAY)
+                    self.log(f"    Payload: {json.dumps(jwt_data['payload'], indent=6)}", Colors.GRAY)
+
+        # Decode Cookie header
+        if 'Cookie' in headers:
+            cookies = ContentDecoder.parse_cookies(headers['Cookie'])
+            if cookies and len(cookies) > 1:  # Only show if multiple cookies or complex
+                self.log(f"  {Colors.WARNING}[Parsed Cookies]:{Colors.ENDC}")
+                for name, value in list(cookies.items())[:5]:  # Show first 5
+                    display_value = value if len(value) < 40 else value[:40] + '...'
+                    self.log(f"    {name}: {display_value}", Colors.GRAY)
+
+        # Decode Set-Cookie header
+        if 'Set-Cookie' in headers:
+            cookie_data = ContentDecoder.parse_set_cookie(headers['Set-Cookie'])
+            if cookie_data:
+                self.log(f"  {Colors.WARNING}[Parsed Set-Cookie]:{Colors.ENDC}")
+                for key, value in cookie_data.items():
+                    if key not in ['name', 'value']:
+                        self.log(f"    {key}: {value}", Colors.GRAY)
+
     def display_body(self, body, headers, label="Body"):
-        """Display request/response body with formatting"""
+        """Display request/response body with formatting and decoding"""
         if not body or len(body) == 0:
             return
 
@@ -418,6 +467,54 @@ class HTTPSViewer:
 
         # Check content type
         content_type = headers.get('Content-Type', '').lower()
+
+        # Handle form data with decoder
+        if self.decode_content and DECODERS_AVAILABLE:
+            # Parse form data
+            if 'application/x-www-form-urlencoded' in content_type:
+                form_data = ContentDecoder.parse_form_data(body, content_type)
+                if form_data:
+                    self.log(f"{Colors.WARNING}[Decoded Form Data]:{Colors.ENDC}")
+                    for key, value in form_data.items():
+                        self.log(f"  {key}: {value}", Colors.GRAY)
+                    return
+
+            # Parse multipart data
+            if 'multipart/form-data' in content_type:
+                boundary_match = re.search(r'boundary=([^;]+)', content_type)
+                if boundary_match:
+                    boundary = boundary_match.group(1).strip('"')
+                    parts = ContentDecoder.parse_multipart(body, boundary)
+                    if parts:
+                        self.log(f"{Colors.WARNING}[Decoded Multipart Data]:{Colors.ENDC}")
+                        for i, part in enumerate(parts, 1):
+                            self.log(f"  Part {i}:", Colors.GRAY)
+                            if part['name']:
+                                self.log(f"    Name: {part['name']}", Colors.GRAY)
+                            if part['filename']:
+                                self.log(f"    Filename: {part['filename']}", Colors.GRAY)
+                            self.log(f"    Size: {len(part['body'])} bytes", Colors.GRAY)
+                        return
+
+            # Pretty print HTML
+            if 'text/html' in content_type:
+                pretty_html = ContentDecoder.pretty_print_html(body)
+                if pretty_html:
+                    self.log(f"{Colors.WARNING}[Formatted HTML]:{Colors.ENDC}")
+                    self.log(pretty_html[:1500], Colors.GRAY)
+                    if len(pretty_html) > 1500:
+                        self.log("... (truncated)", Colors.GRAY)
+                    return
+
+            # Pretty print XML
+            if 'xml' in content_type or 'text/xml' in content_type or 'application/xml' in content_type:
+                pretty_xml = ContentDecoder.pretty_print_xml(body)
+                if pretty_xml:
+                    self.log(f"{Colors.WARNING}[Formatted XML]:{Colors.ENDC}")
+                    self.log(pretty_xml[:1500], Colors.GRAY)
+                    if len(pretty_xml) > 1500:
+                        self.log("... (truncated)", Colors.GRAY)
+                    return
 
         # Try to display as text
         try:
@@ -439,8 +536,14 @@ class HTTPSViewer:
             else:
                 self.log(body_text[:1000] + "\n... (truncated)", Colors.GRAY)
         except:
-            # Binary content
-            self.log(f"<Binary content: {len(body)} bytes>", Colors.GRAY)
+            # Binary content - show hex dump if decoders available
+            if self.decode_content and DECODERS_AVAILABLE:
+                hex_dump = ContentDecoder.hex_dump(body, length=256)
+                if hex_dump:
+                    self.log(f"{Colors.WARNING}[Hex Dump]:{Colors.ENDC}")
+                    self.log(hex_dump, Colors.GRAY)
+            else:
+                self.log(f"<Binary content: {len(body)} bytes>", Colors.GRAY)
 
     def display_request(self, request_info, is_https=False):
         """Display HTTP request in a formatted way"""
@@ -472,6 +575,9 @@ class HTTPSViewer:
                     if len(value) > 100 and key in ['Authorization', 'Cookie']:
                         value = value[:100] + "... (truncated)"
                     self.log(f"  {key}: {value}")
+
+        # Decode special headers
+        self.decode_and_display_headers(request_info['headers'])
 
         # Display body if requested
         if self.show_body and request_info.get('body'):
@@ -520,6 +626,9 @@ class HTTPSViewer:
                         if len(value) > 100:
                             value = value[:100] + "... (truncated)"
                         self.log(f"  {key}: {value}")
+
+            # Decode special response headers
+            self.decode_and_display_headers(response_info.get('headers', {}))
 
             # Display body if requested
             if self.show_body and response_info.get('body'):
@@ -811,6 +920,10 @@ Only use on applications you own or have explicit permission to monitor.
                        help='Pretty print JSON bodies (default: True)')
     parser.add_argument('--max-body-size', type=int, default=10000,
                        help='Maximum body size to display in bytes (default: 10000)')
+    parser.add_argument('--decode', action='store_true', default=True,
+                       help='Auto-decode content (JWT, Base64, cookies, form data, etc.) (default: True)')
+    parser.add_argument('--no-decode', action='store_false', dest='decode',
+                       help='Disable auto-decoding')
 
     args = parser.parse_args()
 
@@ -824,7 +937,8 @@ Only use on applications you own or have explicit permission to monitor.
         filter_status=args.filter_status,
         show_body=args.show_body,
         pretty_json=args.pretty_json,
-        max_body_size=args.max_body_size
+        max_body_size=args.max_body_size,
+        decode_content=args.decode
     )
 
     try:

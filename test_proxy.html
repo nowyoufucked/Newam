@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>HTTP Proxy Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .result {
+            background: #f9f9f9;
+            padding: 10px;
+            margin-top: 10px;
+            border-left: 4px solid #4CAF50;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .error {
+            border-left-color: #f44336;
+        }
+        h1 {
+            color: #333;
+        }
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 HTTP Proxy Test Page</h1>
+
+    <div class="info">
+        <strong>Instructions:</strong>
+        <ol>
+            <li>Make sure your proxy is running on <code>127.0.0.1:9000</code></li>
+            <li>Configure your browser to use the proxy</li>
+            <li>Click the buttons below to generate HTTP traffic</li>
+            <li>Watch the GUI - requests should appear!</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 1: Simple GET Request</h2>
+        <button onclick="testGet()">Send GET Request</button>
+        <div id="get-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: POST Request</h2>
+        <button onclick="testPost()">Send POST Request</button>
+        <div id="post-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 3: JSON API Request</h2>
+        <button onclick="testJson()">Send JSON Request</button>
+        <div id="json-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 4: Multiple Requests</h2>
+        <button onclick="testMultiple()">Send 5 Requests</button>
+        <div id="multiple-result"></div>
+    </div>
+
+    <script>
+        function testGet() {
+            const result = document.getElementById('get-result');
+            result.innerHTML = '<div class="result">Sending GET request...</div>';
+
+            fetch('http://httpbin.org/get', {
+                method: 'GET',
+                headers: {
+                    'X-Test-Header': 'ProxyTest',
+                    'User-Agent': 'ProxyTestClient/1.0'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                result.innerHTML = '<div class="result">✅ Success! Check your GUI for the request.\n\n' +
+                                 JSON.stringify(data, null, 2) + '</div>';
+            })
+            .catch(error => {
+                result.innerHTML = '<div class="result error">❌ Error: ' + error.message +
+                                 '\n\nMake sure proxy is configured correctly!</div>';
+            });
+        }
+
+        function testPost() {
+            const result = document.getElementById('post-result');
+            result.innerHTML = '<div class="result">Sending POST request...</div>';
+
+            fetch('http://httpbin.org/post', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    test: 'proxy',
+                    timestamp: new Date().toISOString()
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                result.innerHTML = '<div class="result">✅ Success! Check your GUI for the POST request.\n\n' +
+                                 JSON.stringify(data, null, 2) + '</div>';
+            })
+            .catch(error => {
+                result.innerHTML = '<div class="result error">❌ Error: ' + error.message + '</div>';
+            });
+        }
+
+        function testJson() {
+            const result = document.getElementById('json-result');
+            result.innerHTML = '<div class="result">Sending JSON request...</div>';
+
+            fetch('http://httpbin.org/json', {
+                method: 'GET'
+            })
+            .then(response => response.json())
+            .then(data => {
+                result.innerHTML = '<div class="result">✅ Success! Check your GUI.\n\n' +
+                                 JSON.stringify(data, null, 2) + '</div>';
+            })
+            .catch(error => {
+                result.innerHTML = '<div class="result error">❌ Error: ' + error.message + '</div>';
+            });
+        }
+
+        function testMultiple() {
+            const result = document.getElementById('multiple-result');
+            result.innerHTML = '<div class="result">Sending 5 requests...</div>';
+
+            let completed = 0;
+            const urls = [
+                'http://httpbin.org/get',
+                'http://httpbin.org/user-agent',
+                'http://httpbin.org/headers',
+                'http://httpbin.org/ip',
+                'http://httpbin.org/uuid'
+            ];
+
+            Promise.all(urls.map(url => fetch(url)))
+                .then(() => {
+                    result.innerHTML = '<div class="result">✅ Sent 5 requests!\n' +
+                                     'Check your GUI - you should see 5 new entries!</div>';
+                })
+                .catch(error => {
+                    result.innerHTML = '<div class="result error">❌ Error: ' + error.message + '</div>';
+                });
+        }
+    </script>
+
+    <div class="info" style="margin-top: 40px;">
+        <strong>⚠️ Important:</strong>
+        <ul>
+            <li>These are <strong>HTTP</strong> requests (not HTTPS)</li>
+            <li>HTTP requests can be captured and displayed</li>
+            <li>HTTPS requests are encrypted and only show as tunnels</li>
+            <li>If nothing appears in GUI, the proxy might not be configured correctly</li>
+        </ul>
+    </div>
+</body>
+</html>

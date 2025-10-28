@@ -33,6 +33,15 @@ python3 gui.py
 python3 http_https_viewer.py -v -b
 ```
 
+### Packet Capture (requires root/admin)
+```bash
+# Capture 100 packets and save to PCAP
+sudo python3 packet_capture.py -c 100 -v -o capture.pcap
+
+# Open in Wireshark
+wireshark capture.pcap
+```
+
 ## Features
 
 ### 🖥️ Graphical User Interface (NEW!)
@@ -92,17 +101,38 @@ python3 http_https_viewer.py -v -b
 
 **See [ADVANCED.md](ADVANCED.md) for comprehensive documentation on advanced features.**
 
+### Multi-Layer Packet Analysis (v5.0 - NEW!)
+- 📦 **Raw Packet Capture** - Capture packets at kernel level using raw sockets
+- 🔬 **Multi-Layer Decoding** - Parse Ethernet, IP, TCP/UDP, and application protocols
+- 🌐 **Protocol Dissection** - Deep inspection of HTTP, DNS, ICMP, ARP, and more
+- 💾 **PCAP/PCAPNG Export** - Save captures in standard format for Wireshark
+- 📊 **Layer-by-Layer Analysis** - Decode all OSI layers from Ethernet to Application
+- 🎯 **Promiscuous Mode** - Capture all network traffic on interface (requires root)
+- 🔍 **Protocol Identification** - Auto-detect protocols at all layers
+- 📈 **Real-Time Statistics** - Protocol distribution, bandwidth per IP, packet rates
+
+**Supported Protocols:**
+- **Layer 2:** Ethernet II, ARP
+- **Layer 3:** IPv4, IPv6, ICMP
+- **Layer 4:** TCP (with flags), UDP
+- **Layer 7:** HTTP, HTTPS, DNS, FTP, SSH, SMTP, and 20+ more
+
+**See [PACKET_ANALYSIS.md](PACKET_ANALYSIS.md) for comprehensive packet capture and analysis documentation.**
+
 ## Tools Included
 
 1. **gui.py** - Graphical user interface
-2. **enhanced_proxy.py** - Advanced proxy with WebSocket, DNS tracking, and more (NEW!)
-3. **http_https_viewer.py** - Main proxy server with enhanced features
-4. **request_replay.py** - Replay requests from HAR files
-5. **traffic_analyzer.py** - Analyze captured traffic and generate reports
-6. **decoders.py** - Standalone decoder utility for various formats
-7. **advanced_capture.py** - Advanced traffic capture modules (NEW!)
-8. **cert_generator.py** - Generate SSL certificates (optional)
-9. **example_client.py** - Test client for proxy validation
+2. **enhanced_proxy.py** - Advanced proxy with WebSocket, DNS tracking, and more
+3. **packet_capture.py** - Raw packet capture at all network layers (NEW!)
+4. **protocol_dissectors.py** - Multi-layer protocol parsers (Ethernet/IP/TCP/UDP/HTTP/DNS) (NEW!)
+5. **pcap_writer.py** - PCAP/PCAPNG file format reader/writer (NEW!)
+6. **http_https_viewer.py** - Main proxy server with enhanced features
+7. **request_replay.py** - Replay requests from HAR files
+8. **traffic_analyzer.py** - Analyze captured traffic and generate reports
+9. **decoders.py** - Standalone decoder utility for various formats
+10. **advanced_capture.py** - Advanced traffic capture modules
+11. **cert_generator.py** - Generate SSL certificates (optional)
+12. **example_client.py** - Test client for proxy validation
 
 ## Requirements
 

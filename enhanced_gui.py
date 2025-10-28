@@ -548,8 +548,43 @@ class EnhancedTrafficViewerGUI:
 
     def update_traffic(self):
         """Update traffic list from queue"""
-        # Poll proxy history for new requests
-        self.poll_proxy_history()
+        # Poll proxy history for new requests more frequently
+        if self.proxy and hasattr(self.proxy, 'history'):
+            try:
+                # Get current count
+                current_count = len(self.traffic_items)
+
+                # Get all requests from proxy history
+                if hasattr(self.proxy.history, 'requests'):
+                    all_requests = self.proxy.history.requests
+
+                    # Add new requests
+                    if len(all_requests) > current_count:
+                        print(f"[GUI] Found {len(all_requests) - current_count} new requests")
+                        for i in range(current_count, len(all_requests)):
+                            request = all_requests[i]
+
+                            # Convert to GUI format
+                            item = {
+                                'method': request.get('method', ''),
+                                'host': request.get('host', ''),
+                                'path': request.get('path', ''),
+                                'url': f"http://{request.get('host', '')}{request.get('path', '')}",
+                                'status_code': request.get('status_code', 0),
+                                'status_text': request.get('status_text', ''),
+                                'request_headers': request.get('headers', {}),
+                                'response_headers': request.get('response_headers', {}),
+                                'request_body': request.get('body', b''),
+                                'response_body': request.get('response_body', b''),
+                                'request_size': len(request.get('body', b'')),
+                                'response_size': len(request.get('response_body', b'')),
+                                'duration': request.get('response_time', 0) * 1000,  # Convert to ms
+                                'timestamp': request.get('timestamp', time.time())
+                            }
+                            self.traffic_queue.put(item)
+
+            except Exception as e:
+                print(f"[GUI] Error polling proxy history: {e}")
 
         try:
             while not self.traffic_queue.empty():
@@ -558,46 +593,8 @@ class EnhancedTrafficViewerGUI:
         except queue.Empty:
             pass
 
-        self.root.after(100, self.update_traffic)
-
-    def poll_proxy_history(self):
-        """Poll proxy history for new traffic items"""
-        if not self.proxy or not hasattr(self.proxy, 'history'):
-            return
-
-        try:
-            # Get all requests from proxy history
-            if hasattr(self.proxy.history, 'requests'):
-                proxy_requests = self.proxy.history.requests
-
-                # Check if we have new requests
-                current_count = len(self.traffic_items)
-                proxy_count = len(proxy_requests)
-
-                if proxy_count > current_count:
-                    # Add new requests to GUI
-                    for i in range(current_count, proxy_count):
-                        request = proxy_requests[i]
-                        # Convert to GUI format
-                        item = {
-                            'method': request.get('method', ''),
-                            'host': request.get('host', ''),
-                            'path': request.get('path', ''),
-                            'url': request.get('url', ''),
-                            'status_code': request.get('status_code', 0),
-                            'status_text': request.get('status_text', ''),
-                            'request_headers': request.get('request_headers', {}),
-                            'response_headers': request.get('response_headers', {}),
-                            'request_body': request.get('request_body', ''),
-                            'response_body': request.get('response_body', ''),
-                            'request_size': request.get('request_size', 0),
-                            'response_size': request.get('response_size', 0),
-                            'duration': request.get('response_time', 0) * 1000,  # Convert to ms
-                            'timestamp': request.get('timestamp', time.time())
-                        }
-                        self.traffic_queue.put(item)
-        except Exception as e:
-            print(f"Error polling proxy history: {e}")
+        # Update every 500ms (more responsive)
+        self.root.after(500, self.update_traffic)
 
     def update_statistics(self):
         """Update statistics display"""

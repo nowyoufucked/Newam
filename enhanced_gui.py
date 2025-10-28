@@ -258,6 +258,25 @@ class EnhancedTrafficViewerGUI:
         ttk.Button(row3, text="Apply", command=self.apply_filters).pack(side=tk.LEFT, padx=5)
         ttk.Button(row3, text="Clear", command=self.clear_filters).pack(side=tk.LEFT)
 
+        # Row 4: Activity Monitor
+        activity_frame = ttk.LabelFrame(control_frame, text="Live Activity", padding=5)
+        activity_frame.pack(fill=tk.X, pady=5)
+
+        self.activity_label = ttk.Label(activity_frame, text="⚫ Waiting for connections...", font=('Arial', 9))
+        self.activity_label.pack(side=tk.LEFT, padx=10)
+
+        self.connections_label = ttk.Label(activity_frame, text="Connections: 0", font=('Arial', 9, 'bold'), foreground='blue')
+        self.connections_label.pack(side=tk.LEFT, padx=10)
+
+        self.dns_label = ttk.Label(activity_frame, text="DNS: 0", font=('Arial', 9))
+        self.dns_label.pack(side=tk.LEFT, padx=10)
+
+        self.https_label = ttk.Label(activity_frame, text="HTTPS: 0", font=('Arial', 9))
+        self.https_label.pack(side=tk.LEFT, padx=10)
+
+        self.http_label = ttk.Label(activity_frame, text="HTTP: 0", font=('Arial', 9), foreground='green')
+        self.http_label.pack(side=tk.LEFT, padx=10)
+
     def setup_session_tabs(self, parent):
         """Setup session tabs"""
         session_frame = ttk.Frame(parent)
@@ -547,12 +566,39 @@ class EnhancedTrafficViewerGUI:
             messagebox.showerror("Error", f"Failed to stop proxy: {e}")
 
     def update_traffic(self):
-        """Update traffic list from queue"""
+        """Update traffic list from queue with comprehensive logging"""
+        # Debug: First call indicator
+        if not hasattr(self, '_update_traffic_called'):
+            self._update_traffic_called = True
+            self._update_count = 0
+            print("[GUI] ✓ update_traffic() started - will poll every 500ms")
+
+        self._update_count += 1
+
+        # Debug: Show periodic status
+        if self._update_count % 10 == 0:  # Every 5 seconds
+            print(f"[GUI] Polling cycle #{self._update_count} - Proxy running: {self.is_running}")
+
+        if not self.is_running:
+            # Still update but don't poll proxy
+            self.root.after(500, self.update_traffic)
+            return
+
         # Poll proxy history for new requests more frequently
         if self.proxy and hasattr(self.proxy, 'history'):
             try:
                 # Get current count
                 current_count = len(self.traffic_items)
+
+                # Debug: Show proxy state
+                if self._update_count % 10 == 0:
+                    print(f"[GUI] Proxy object exists: {self.proxy is not None}")
+                    print(f"[GUI] Has history: {hasattr(self.proxy, 'history')}")
+                    if hasattr(self.proxy, 'history'):
+                        print(f"[GUI] Has requests: {hasattr(self.proxy.history, 'requests')}")
+                        if hasattr(self.proxy.history, 'requests'):
+                            print(f"[GUI] History count: {len(self.proxy.history.requests)}")
+                            print(f"[GUI] GUI items count: {current_count}")
 
                 # Get all requests from proxy history
                 if hasattr(self.proxy.history, 'requests'):
@@ -560,9 +606,12 @@ class EnhancedTrafficViewerGUI:
 
                     # Add new requests
                     if len(all_requests) > current_count:
-                        print(f"[GUI] Found {len(all_requests) - current_count} new requests")
+                        new_count = len(all_requests) - current_count
+                        print(f"[GUI] ✅ Found {new_count} new requests! (Total: {len(all_requests)})")
+
                         for i in range(current_count, len(all_requests)):
                             request = all_requests[i]
+                            print(f"[GUI] Processing request #{i+1}: {request.get('method', '?')} {request.get('host', '?')}")
 
                             # Convert to GUI format
                             item = {
@@ -582,16 +631,35 @@ class EnhancedTrafficViewerGUI:
                                 'timestamp': request.get('timestamp', time.time())
                             }
                             self.traffic_queue.put(item)
+                            print(f"[GUI] ✓ Added to queue")
+                    else:
+                        if self._update_count % 20 == 0:  # Every 10 seconds
+                            print(f"[GUI] No new requests. Waiting... (History: {len(all_requests)}, GUI: {current_count})")
+                else:
+                    if self._update_count == 10:
+                        print("[GUI] ⚠️ WARNING: proxy.history has no 'requests' attribute!")
 
             except Exception as e:
-                print(f"[GUI] Error polling proxy history: {e}")
+                print(f"[GUI] ❌ ERROR polling proxy history: {e}")
+                import traceback
+                traceback.print_exc()
 
+        else:
+            if self._update_count == 5:
+                print(f"[GUI] ⚠️ WARNING: Proxy not accessible (proxy={self.proxy}, has_history={hasattr(self.proxy, 'history') if self.proxy else False})")
+
+        # Process queue
+        processed = 0
         try:
             while not self.traffic_queue.empty():
                 item = self.traffic_queue.get_nowait()
                 self.add_traffic_item(item)
+                processed += 1
         except queue.Empty:
             pass
+
+        if processed > 0:
+            print(f"[GUI] ✓ Processed {processed} items from queue")
 
         # Update every 500ms (more responsive)
         self.root.after(500, self.update_traffic)
@@ -605,22 +673,55 @@ class EnhancedTrafficViewerGUI:
                     text=f"Requests: {stats.total_requests} | Responses: {stats.total_responses} | Errors: {stats.total_errors}"
                 )
 
+                # Update activity indicators
+                if hasattr(stats, 'connections_handled'):
+                    self.connections_label.config(text=f"Connections: {stats.connections_handled}")
+
+                    # Show activity indicator
+                    if stats.connections_handled > 0:
+                        self.activity_label.config(text="🟢 Active", foreground='green')
+                    else:
+                        self.activity_label.config(text="⚫ Idle", foreground='gray')
+
+                # Update DNS counter (if enhanced proxy)
+                if hasattr(self.proxy, 'dns_resolutions'):
+                    self.dns_label.config(text=f"DNS: {self.proxy.dns_resolutions}")
+
+                # Count HTTP vs HTTPS from traffic items
+                http_count = len([item for item in self.traffic_items if item.get('method')])
+                https_tunnels = stats.connections_handled - http_count if hasattr(stats, 'connections_handled') else 0
+
+                self.http_label.config(text=f"HTTP: {http_count}")
+                self.https_label.config(text=f"HTTPS: {https_tunnels}")
+
                 # Store for visualization
                 timestamp = time.time() - self.start_time
                 self.stats_history['timestamp'].append(timestamp)
                 self.stats_history['requests'].append(stats.total_requests)
                 self.stats_history['responses'].append(stats.total_responses)
 
+                # Debug log every 5 seconds
+                if int(timestamp) % 5 == 0 and not hasattr(self, '_last_stats_log') or self._last_stats_log != int(timestamp):
+                    self._last_stats_log = int(timestamp)
+                    print(f"[GUI] Stats: Connections={stats.connections_handled if hasattr(stats, 'connections_handled') else 0}, HTTP={http_count}, Items={len(self.traffic_items)}")
+
         except Exception as e:
-            pass
+            print(f"[GUI] Error updating statistics: {e}")
 
         self.root.after(1000, self.update_statistics)
 
     def add_traffic_item(self, item):
-        """Add traffic item to list"""
+        """Add traffic item to list with logging"""
+        print(f"[GUI] add_traffic_item() called")
+        print(f"[GUI]   Method: {item.get('method', '')}")
+        print(f"[GUI]   Host: {item.get('host', '')}")
+        print(f"[GUI]   Path: {item.get('path', '')}")
+        print(f"[GUI]   Status: {item.get('status_code', '')}")
+
         # Add to current session
         self.sessions[self.current_session].append(item)
         self.traffic_items.append(item)
+        print(f"[GUI] ✓ Added to traffic_items (total: {len(self.traffic_items)})")
 
         # Format time
         timestamp = datetime.fromtimestamp(item.get('timestamp', time.time()))
@@ -638,6 +739,8 @@ class EnhancedTrafficViewerGUI:
         size_str = self.format_size(size) if size else ''
         duration_str = f"{duration:.0f}ms" if duration else ''
 
+        print(f"[GUI] Inserting into tree: {method} {host}{path} {status}")
+
         # Determine color based on status
         tags = []
         if status:
@@ -654,6 +757,8 @@ class EnhancedTrafficViewerGUI:
         iid = self.tree.insert('', 'end', text=str(len(self.traffic_items)),
                                values=(time_str, method, host, path, status, size_str, duration_str),
                                tags=tags)
+        print(f"[GUI] ✓ Inserted into tree with iid={iid}")
+        print(f"[GUI] ✓ Tree now has {len(self.tree.get_children())} items")
 
         # Configure tag colors
         self.tree.tag_configure('success', foreground='green')
@@ -663,6 +768,7 @@ class EnhancedTrafficViewerGUI:
 
         # Auto-scroll to bottom
         self.tree.see(iid)
+        print(f"[GUI] ✓ Scrolled to item")
 
     def format_size(self, size):
         """Format size in human readable format"""

@@ -220,6 +220,11 @@ class FixedEnhancedGUI:
 
     def update_traffic(self):
         """Update traffic list from proxy history"""
+        # Debug: First call
+        if not hasattr(self, '_update_traffic_called'):
+            self._update_traffic_called = True
+            print("[GUI] update_traffic() is running - will check every 500ms")
+
         if self.proxy and hasattr(self.proxy, 'history'):
             try:
                 # Get current count
@@ -229,17 +234,42 @@ class FixedEnhancedGUI:
                 if hasattr(self.proxy.history, 'requests'):
                     all_requests = self.proxy.history.requests
 
+                    # Debug: Show history size periodically
+                    if not hasattr(self, '_last_check_count'):
+                        self._last_check_count = 0
+
+                    # Only print every 10th check to reduce spam
+                    self._last_check_count += 1
+                    if self._last_check_count % 10 == 0:
+                        print(f"[GUI DEBUG] Checking history... Current: {current_count}, History: {len(all_requests)}")
+
                     # Add new requests
                     if len(all_requests) > current_count:
+                        new_count = len(all_requests) - current_count
+                        print(f"[GUI] ✅ Found {new_count} new requests (total: {len(all_requests)})")
+
                         for i in range(current_count, len(all_requests)):
                             request = all_requests[i]
+                            print(f"[GUI] Adding request #{i+1}: {request.get('method', '?')} {request.get('host', '?')}{request.get('path', '?')}")
                             self.add_traffic_item(request)
 
                         # Update status bar
                         self.status_bar.config(text=f"Captured {len(all_requests)} requests")
+                else:
+                    if not hasattr(self, '_warned_no_requests_attr'):
+                        self._warned_no_requests_attr = True
+                        print("[GUI WARNING] proxy.history exists but has no 'requests' attribute")
 
             except Exception as e:
-                print(f"Error updating traffic: {e}")
+                print(f"[GUI ERROR] Error updating traffic: {e}")
+                import traceback
+                traceback.print_exc()
+        else:
+            # Proxy not running yet
+            if not hasattr(self, '_warned_no_proxy'):
+                if self.is_running:  # Only warn if proxy should be running
+                    self._warned_no_proxy = True
+                    print("[GUI WARNING] Proxy is running but proxy.history not accessible")
 
         # Schedule next update (every 500ms)
         self.root.after(500, self.update_traffic)

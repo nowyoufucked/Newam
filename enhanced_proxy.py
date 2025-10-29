@@ -191,6 +191,27 @@ class EnhancedHTTPSViewer(HTTPSViewer):
             # Connect to server (with upstream proxy support)
             server_socket = self.upstream_handler.connect(target_host, target_port)
 
+            # Add WebSocket upgrade to history for GUI visibility
+            self.history.add({
+                'timestamp': time.time(),
+                'method': 'WEBSOCKET',
+                'host': target_host,
+                'path': request_info.get('path', '/'),
+                'url': f"ws://{target_host}{request_info.get('path', '/')}",
+                'status_code': 101,
+                'status_text': 'Switching Protocols',
+                'headers': request_info['headers'],
+                'body': b'',
+                'response_headers': {},
+                'response_body': b'[WebSocket Connection - Real-time Messages]',
+                'response_time': 0,
+                'info': 'WebSocket connection - bidirectional communication'
+            })
+
+            # Record statistics
+            if hasattr(self, 'stats'):
+                self.stats.record_connection()
+
             # Handle WebSocket
             self.websocket_handler.handle_websocket(
                 client_socket, server_socket, request_info, self.advanced_logger
@@ -354,13 +375,38 @@ class EnhancedHTTPSViewer(HTTPSViewer):
                 server_socket.close()
 
             # Display request/response (existing functionality)
+            response_info = None
+            response_time = 0
+            if response_data:
+                response_info = self.parse_http_response(response_data)
+                response_time = (datetime.now() - start_time).total_seconds()
+
             if self.show_body:
                 self.display_request(request_info)
-                if response_data:
-                    response_info = self.parse_http_response(response_data)
-                    if response_info:
-                        response_time = (datetime.now() - start_time).total_seconds()
-                        self.display_response(response_info, response_time=response_time)
+                if response_info:
+                    self.display_response(response_info, response_time=response_time)
+
+            # Add to history for GUI
+            if response_info:
+                self.history.add({
+                    'timestamp': time.time(),
+                    'method': request_info['method'],
+                    'host': target_host,
+                    'path': request_info['path'],
+                    'url': f"http://{target_host}{request_info['path']}",
+                    'status_code': response_info.get('status_code', 0),
+                    'status_text': response_info.get('status_text', ''),
+                    'headers': request_info['headers'],
+                    'body': request_info.get('body', b''),
+                    'response_headers': response_info.get('headers', {}),
+                    'response_body': response_info.get('body', b''),
+                    'response_time': response_time
+                })
+
+                # Record statistics
+                if hasattr(self, 'stats'):
+                    self.stats.record_request(request_info['method'], target_host, len(request_info['raw']))
+                    self.stats.record_response(response_info.get('status_code', 0), len(response_data), response_time)
 
         except Exception as e:
             self.advanced_logger(f"HTTP request error: {e}", "error")

@@ -1,6 +1,6 @@
-# HTTP/HTTPS Traffic Viewer - All-in-One
+# HTTP/HTTPS Traffic Viewer - All-in-One Launcher
 
-**Single-file, complete HTTP/HTTPS traffic analysis tool with GUI**
+**Complete HTTP/HTTPS traffic analysis tool with full-featured GUI - all advanced features always available**
 
 ## Quick Start
 

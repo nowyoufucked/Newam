@@ -17,15 +17,22 @@ Features:
 - Statistics and visualization
 
 Usage:
-    python3 traffic_viewer_all_in_one.py [--gui {fixed|enhanced|both}]
+    python3 traffic_viewer_all_in_one.py [options]
 
 Options:
-    --gui fixed      Launch simple GUI (recommended, fewer dependencies)
-    --gui enhanced   Launch full-featured GUI
-    --gui both       Show selector dialog
     --no-gui         Run proxy only (no GUI)
     --port PORT      Proxy port (default: 9000)
     --host HOST      Proxy host (default: 127.0.0.1)
+
+By default, launches full-featured GUI with all advanced features:
+- Packet capture and analysis
+- WebSocket message viewer
+- DNS query tracking
+- Live statistics and graphs
+- Multiple export formats (HAR, JSON, CSV, PCAP)
+- Certificate viewer
+- Protocol-specific tabs
+- Advanced filtering and search
 
 Requirements:
     - Python 3.6+
@@ -521,320 +528,43 @@ class HTTPSViewer:
 
 
 # ============================================================================
-# SECTION 5: SIMPLE GUI (RECOMMENDED)
+# SECTION 5: GUI LAUNCHER
 # ============================================================================
 
-def create_simple_gui():
-    """Create simple, working GUI"""
-    import tkinter as tk
-    from tkinter import ttk, scrolledtext, filedialog, messagebox
-    import queue
-
-    class SimpleGUI:
-        def __init__(self, root):
-            self.root = root
-            self.root.title("HTTP/HTTPS Traffic Viewer")
-            self.root.geometry("1400x900")
-
-            self.proxy = None
-            self.proxy_thread = None
-            self.is_running = False
-            self.traffic_items = []
-            self.selected_request = None
-
-            self.config = {
-                'host': '127.0.0.1',
-                'port': 9000,
-                'verbose': True
-            }
-
-            self.setup_ui()
-            self.update_traffic()
-            self.root.after(2000, self.show_instructions)
-
-        def setup_ui(self):
-            # Control panel
-            control_frame = ttk.LabelFrame(self.root, text="Proxy Control", padding=10)
-            control_frame.pack(fill=tk.X, padx=5, pady=5)
-
-            ttk.Label(control_frame, text="Host:").pack(side=tk.LEFT, padx=5)
-            self.host_entry = ttk.Entry(control_frame, width=15)
-            self.host_entry.insert(0, self.config['host'])
-            self.host_entry.pack(side=tk.LEFT, padx=5)
-
-            ttk.Label(control_frame, text="Port:").pack(side=tk.LEFT, padx=5)
-            self.port_entry = ttk.Entry(control_frame, width=8)
-            self.port_entry.insert(0, str(self.config['port']))
-            self.port_entry.pack(side=tk.LEFT, padx=5)
-
-            self.start_button = ttk.Button(control_frame, text="Start Proxy", command=self.start_proxy)
-            self.start_button.pack(side=tk.LEFT, padx=5)
-
-            self.stop_button = ttk.Button(control_frame, text="Stop Proxy", command=self.stop_proxy, state=tk.DISABLED)
-            self.stop_button.pack(side=tk.LEFT, padx=5)
-
-            ttk.Button(control_frame, text="Clear", command=self.clear_traffic).pack(side=tk.LEFT, padx=5)
-            ttk.Button(control_frame, text="Export JSON", command=self.export_json).pack(side=tk.LEFT, padx=5)
-
-            self.status_label = ttk.Label(control_frame, text="⚫ Stopped", foreground="red")
-            self.status_label.pack(side=tk.LEFT, padx=20)
-
-            # Main paned window
-            paned = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
-            paned.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-
-            # Left: Traffic list
-            left_frame = ttk.Frame(paned)
-            paned.add(left_frame, weight=1)
-
-            ttk.Label(left_frame, text="Captured Traffic", font=('Arial', 10, 'bold')).pack(pady=5)
-
-            tree_frame = ttk.Frame(left_frame)
-            tree_frame.pack(fill=tk.BOTH, expand=True)
-
-            columns = ('Method', 'Host', 'Path', 'Status', 'Size', 'Time')
-            self.tree = ttk.Treeview(tree_frame, columns=columns, show='headings', height=20)
-
-            for col in columns:
-                self.tree.heading(col, text=col)
-                if col == 'Method':
-                    self.tree.column(col, width=60)
-                elif col == 'Status':
-                    self.tree.column(col, width=60)
-                elif col == 'Size':
-                    self.tree.column(col, width=80)
-                elif col == 'Time':
-                    self.tree.column(col, width=80)
-                else:
-                    self.tree.column(col, width=200)
-
-            self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
-            scrollbar = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=self.tree.yview)
-            scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-            self.tree.config(yscrollcommand=scrollbar.set)
-
-            self.tree.bind('<<TreeviewSelect>>', self.on_select)
-
-            # Right: Details
-            right_frame = ttk.Frame(paned)
-            paned.add(right_frame, weight=2)
-
-            ttk.Label(right_frame, text="Request Details", font=('Arial', 10, 'bold')).pack(pady=5)
-
-            self.details_notebook = ttk.Notebook(right_frame)
-            self.details_notebook.pack(fill=tk.BOTH, expand=True)
-
-            # Overview tab
-            overview_frame = ttk.Frame(self.details_notebook)
-            self.details_notebook.add(overview_frame, text="Overview")
-            self.overview_text = scrolledtext.ScrolledText(overview_frame, wrap=tk.WORD)
-            self.overview_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-
-            # Request tab
-            request_frame = ttk.Frame(self.details_notebook)
-            self.details_notebook.add(request_frame, text="Request")
-            self.request_text = scrolledtext.ScrolledText(request_frame, wrap=tk.WORD)
-            self.request_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-
-            # Response tab
-            response_frame = ttk.Frame(self.details_notebook)
-            self.details_notebook.add(response_frame, text="Response")
-            self.response_text = scrolledtext.ScrolledText(response_frame, wrap=tk.WORD)
-            self.response_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-
-            # Status bar
-            self.status_bar = ttk.Label(self.root, text="Ready", relief=tk.SUNKEN, anchor=tk.W)
-            self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
-
-        def show_instructions(self):
-            msg = """Quick Start Guide:
-
-1. Click 'Start Proxy' button
-2. Configure your browser/application:
-   - Proxy: 127.0.0.1
-   - Port: 9000
-3. Browse the web - traffic will appear here!
-
-For HTTP testing:
-- Run: python3 test_http_server.py (port 8000)
-- Visit: http://127.0.0.1:8000/test
-
-Note: HTTPS traffic appears as encrypted tunnels.
-Use HTTP for full request/response capture.
-"""
-            messagebox.showinfo("Welcome to Traffic Viewer", msg)
-
-        def start_proxy(self):
-            if self.is_running:
-                return
-
-            try:
-                host = self.host_entry.get()
-                port = int(self.port_entry.get())
-
-                self.proxy = HTTPSViewer(host=host, port=port, verbose=True)
-                self.proxy_thread = threading.Thread(target=self.proxy.start, daemon=True)
-                self.proxy_thread.start()
-
-                self.is_running = True
-                self.start_button.config(state=tk.DISABLED)
-                self.stop_button.config(state=tk.NORMAL)
-                self.status_label.config(text="🟢 Running", foreground="green")
-                self.status_bar.config(text=f"Proxy started on {host}:{port}")
-
-            except Exception as e:
-                messagebox.showerror("Error", f"Failed to start proxy: {e}")
-
-        def stop_proxy(self):
-            if not self.is_running:
-                return
-
-            if self.proxy:
-                self.proxy.stop()
-
-            self.is_running = False
-            self.start_button.config(state=tk.NORMAL)
-            self.stop_button.config(state=tk.DISABLED)
-            self.status_label.config(text="⚫ Stopped", foreground="red")
-            self.status_bar.config(text="Proxy stopped")
-
-        def update_traffic(self):
-            """Update traffic list from proxy history"""
-            if self.proxy and hasattr(self.proxy, 'history'):
-                try:
-                    current_count = len(self.traffic_items)
-                    all_requests = self.proxy.history.requests
-
-                    if len(all_requests) > current_count:
-                        for i in range(current_count, len(all_requests)):
-                            request = all_requests[i]
-                            self.add_traffic_item(request)
-
-                        self.status_bar.config(text=f"Captured {len(all_requests)} requests")
-
-                except Exception as e:
-                    print(f"Error updating traffic: {e}")
-
-            self.root.after(500, self.update_traffic)
-
-        def add_traffic_item(self, request):
-            """Add request to tree"""
-            try:
-                method = request.get('method', '')
-                host = request.get('host', '')
-                path = request.get('path', '')
-                status = request.get('status_code', '')
-                size = request.get('response_size', 0)
-                duration = request.get('duration', 0)
-
-                self.tree.insert('', tk.END, values=(
-                    method,
-                    host,
-                    path,
-                    status,
-                    f"{size} B",
-                    f"{duration:.0f}ms"
-                ))
-
-                self.traffic_items.append(request)
-            except Exception as e:
-                print(f"Error adding item: {e}")
-
-        def on_select(self, event):
-            """Handle tree selection"""
-            selection = self.tree.selection()
-            if not selection:
-                return
-
-            idx = self.tree.index(selection[0])
-            if idx < len(self.traffic_items):
-                self.selected_request = self.traffic_items[idx]
-                self.show_details()
-
-        def show_details(self):
-            """Show request details"""
-            if not self.selected_request:
-                return
-
-            # Overview
-            overview = f"""Method: {self.selected_request.get('method', '')}
-URL: {self.selected_request.get('url', '')}
-Host: {self.selected_request.get('host', '')}
-Path: {self.selected_request.get('path', '')}
-Status: {self.selected_request.get('status_code', '')}
-Duration: {self.selected_request.get('duration', 0):.2f} ms
-Response Size: {self.selected_request.get('response_size', 0)} bytes
-Timestamp: {self.selected_request.get('timestamp', '')}
-"""
-            self.overview_text.delete('1.0', tk.END)
-            self.overview_text.insert('1.0', overview)
-
-            # Request
-            request_info = f"""Headers:
-{json.dumps(self.selected_request.get('request_headers', {}), indent=2)}
-
-Body:
-{self.selected_request.get('request_body', '')}
-"""
-            self.request_text.delete('1.0', tk.END)
-            self.request_text.insert('1.0', request_info)
-
-            # Response
-            response_info = f"""Status: {self.selected_request.get('status_code', '')}
-Size: {self.selected_request.get('response_size', 0)} bytes
-
-(Response body not captured in simple mode)
-"""
-            self.response_text.delete('1.0', tk.END)
-            self.response_text.insert('1.0', response_info)
-
-        def clear_traffic(self):
-            """Clear all traffic"""
-            for item in self.tree.get_children():
-                self.tree.delete(item)
-            self.traffic_items.clear()
-            if self.proxy:
-                self.proxy.history.clear()
-            self.status_bar.config(text="Traffic cleared")
-
-        def export_json(self):
-            """Export to JSON"""
-            if not self.traffic_items:
-                messagebox.showwarning("No Data", "No traffic to export")
-                return
-
-            filename = filedialog.asksaveasfilename(
-                defaultextension=".json",
-                filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
-            )
-            if filename:
-                try:
-                    with open(filename, 'w') as f:
-                        json.dump(self.traffic_items, f, indent=2, default=str)
-                    self.status_bar.config(text=f"Exported {len(self.traffic_items)} requests to {filename}")
-                    messagebox.showinfo("Success", f"Exported {len(self.traffic_items)} requests")
-                except Exception as e:
-                    messagebox.showerror("Error", f"Failed to export: {e}")
-
-    root = tk.Tk()
-    app = SimpleGUI(root)
-    root.mainloop()
+def launch_gui():
+    """Launch the full-featured enhanced GUI"""
+    try:
+        import tkinter as tk
+        from enhanced_gui import EnhancedTrafficViewerGUI
+        
+        root = tk.Tk()
+        app = EnhancedTrafficViewerGUI(root)
+        root.mainloop()
+    except ImportError as e:
+        print(f"{Colors.FAIL}Error: Required GUI modules not available: {e}{Colors.ENDC}")
+        print("Please ensure all required files are present:")
+        print("  - enhanced_gui.py")
+        print("  - enhanced_proxy.py")
+        print("  - http_https_viewer.py")
+        print("  - advanced_capture.py")
+        print("  - decoders.py")
+        print("  - packet_capture.py")
+        print("  - protocol_dissectors.py")
+        print("  - pcap_writer.py")
+        sys.exit(1)
 
 
-# ============================================================================
 # SECTION 6: MAIN ENTRY POINT
 # ============================================================================
 
 def main():
     """Main entry point"""
     parser = argparse.ArgumentParser(
-        description='HTTP/HTTPS Traffic Viewer - All-in-One',
+        description='HTTP/HTTPS Traffic Viewer - Full-Featured',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s                    # Launch with simple GUI
-  %(prog)s --gui enhanced     # Launch with full-featured GUI
+  %(prog)s                    # Launch with full-featured GUI (default)
   %(prog)s --no-gui           # Run proxy only (no GUI)
   %(prog)s --port 8080        # Use custom port
 
@@ -843,12 +573,20 @@ For HTTP testing:
   2. In another terminal: python3 test_http_server.py
   3. Configure browser to use proxy 127.0.0.1:9000
   4. Visit http://127.0.0.1:8000/test
+
+Features:
+  - All advanced features always available
+  - Packet capture and PCAP export
+  - WebSocket message viewer
+  - DNS query tracking
+  - Live statistics and graphs
+  - Multiple export formats (HAR, JSON, CSV, PCAP)
+  - Certificate viewer
+  - Advanced filtering and search
         """
     )
 
-    parser.add_argument('--gui', choices=['fixed', 'simple', 'enhanced', 'both'],
-                        default='simple', help='GUI mode (default: simple)')
-    parser.add_argument('--no-gui', action='store_true', help='Run without GUI')
+    parser.add_argument('--no-gui', action='store_true', help='Run without GUI (proxy only mode)')
     parser.add_argument('--port', type=int, default=9000, help='Proxy port (default: 9000)')
     parser.add_argument('--host', default='127.0.0.1', help='Proxy host (default: 127.0.0.1)')
 
@@ -867,38 +605,10 @@ For HTTP testing:
             proxy.stop()
 
     else:
-        # Check if tkinter is available
-        try:
-            import tkinter as tk
-            from tkinter import ttk, messagebox
-        except ImportError:
-            print(f"{Colors.FAIL}Error: tkinter not available{Colors.ENDC}")
-            print("Install tkinter or use --no-gui option")
-            sys.exit(1)
-
-        # Launch GUI
-        if args.gui == 'both':
-            root = tk.Tk()
-            root.withdraw()
-            choice = messagebox.askquestion(
-                "Select GUI",
-                "Choose GUI version:\n\nYES = Simple (recommended, faster)\nNO = Enhanced (full features)",
-                icon='question'
-            )
-            root.destroy()
-
-            if choice == 'yes':
-                create_simple_gui()
-            else:
-                messagebox.showinfo("Enhanced GUI", "Enhanced GUI requires all modules.\nLaunching simple GUI instead.")
-                create_simple_gui()
-
-        elif args.gui in ['simple', 'fixed']:
-            create_simple_gui()
-
-        elif args.gui == 'enhanced':
-            messagebox.showinfo("Enhanced GUI", "Enhanced GUI requires all modules.\nLaunching simple GUI instead.")
-            create_simple_gui()
+        # Launch full-featured GUI
+        print(f"\n{Colors.HEADER}HTTP/HTTPS Traffic Viewer - Full-Featured GUI{Colors.ENDC}")
+        print(f"{Colors.OKCYAN}All advanced features enabled{Colors.ENDC}\n")
+        launch_gui()
 
 
 if __name__ == '__main__':

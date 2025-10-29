@@ -35,14 +35,14 @@ if not exist "traffic_viewer_all_in_one.py" (
 
 :menu
 echo Select launch mode:
-echo   1. Simple GUI (recommended)
+echo   1. Full-Featured GUI (all features enabled)
 echo   2. Proxy only (no GUI)
 echo   3. Custom port
 echo   4. Exit
 echo.
 set /p choice="Enter choice [1-4]: "
 
-if "%choice%"=="1" goto simple
+if "%choice%"=="1" goto fullgui
 if "%choice%"=="2" goto proxy
 if "%choice%"=="3" goto custom
 if "%choice%"=="4" goto end
@@ -50,11 +50,19 @@ echo Invalid choice
 echo.
 goto menu
 
-:simple
+:fullgui
 echo.
-echo Launching Simple GUI...
+echo Launching Full-Featured GUI...
+echo All advanced features enabled:
+echo   - Packet capture and PCAP export
+echo   - WebSocket message viewer
+echo   - DNS query tracking
+echo   - Live statistics and graphs
+echo   - Multiple export formats
+echo   - Certificate viewer
+echo   - Advanced filtering and search
 echo.
-python traffic_viewer_all_in_one.py --gui simple
+python traffic_viewer_all_in_one.py
 goto end
 
 :proxy
